@@ -1,0 +1,103 @@
+{
+  "terminal.integrated.inheritEnv": false,
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.editorAssociations": {
+    "*.ipynb": "jupyter-notebook"
+  },
+  "liveServer.settings.donotShowInfoMsg": true,
+  "notebook.cellToolbarLocation": {
+    "default": "right",
+    "jupyter-notebook": "left"
+  },
+  "jupyter.askForKernelRestart": false,
+  "terminal.external.osxExec": "iTerm.app",
+  "terminal.integrated.fontFamily": "MesloLGL Nerd Font Mono",
+  "editor.suggestSelection": "first",
+  "editor.suggest.insertMode": "replace",
+  "terminal.integrated.env.osx": {
+    "PYTHONPATH": "${workspaceFolder}"
+  },
+  "explorer.confirmDragAndDrop": false,
+  "git.autofetch": true,
+  "editor.tabCompletion": "on",
+  "editor.suggest.showMethods": true,
+  "editor.suggest.preview": true,
+  "editor.acceptSuggestionOnEnter": "on",
+  "editor.snippetSuggestions": "top",
+  "autoDocstring.docstringFormat": "google-notypes",
+  "git.ignoreRebaseWarning": true,
+  "editor.renderWhitespace": "none",
+  "markdown-preview-enhanced.previewTheme": "github-dark.css",
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnType": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "liveServer.settings.fullReload": true,
+  "editor.fontFamily": "Berkeley Mono Variable",
+  "editor.lineNumbers": "relative",
+  "terminal.integrated.profiles.osx": {
+    "tmux-shell": {
+      "path": "tmux",
+      "args": ["new-session", "-A", "-s", "vscode:${workspaceFolder}"]
+    }
+  },
+  "terminal.integrated.defaultProfile.osx": "tmux-shell",
+  "editor.formatOnSave": true,
+  "go.toolsManagement.autoUpdate": true,
+  "extensions.experimental.affinity": {
+    "asvetliakov.vscode-neovim": 1
+  },
+  "vscode-neovim.neovimExecutablePaths.darwin": "/opt/homebrew/bin/nvim",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "projectManager.git.baseFolders": ["~/repos"],
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "zenMode.hideLineNumbers": false,
+  "zenMode.fullScreen": false,
+  "update.showReleaseNotes": false,
+  // Using the light mode
+  "indentRainbow.indicatorStyle": "light",
+  // we use a simple 1 pixel wide line
+  "indentRainbow.lightIndicatorStyleLineWidth": 1,
+  // the same colors as above but more visible
+  "indentRainbow.colors": [
+    "rgba(255,255,64,0.3)",
+    "rgba(127,255,127,0.3)",
+    "rgba(255,127,255,0.3)",
+    "rgba(79,236,236,0.3)"
+  ],
+  "workbench.colorTheme": "Tokyo Night",
+  "workbench.sideBar.location": "right",
+  "github.copilot.editor.enableAutoCompletions": true,
+  "editor.accessibilitySupport": "off",
+  "github.copilot.enable": {
+    "*": true, // Enable Copilot for all file types by default
+    "plaintext": false, // Disable Copilot for plain text files
+    "markdown": false, // Disable Copilot for Markdown files
+    "mdx": false // Disable Copilot for MDX files
+  },
+  "cSpell.enabled": true,
+  "cSpell.userWords": ["Farber", "Kostya"],
+  "redhat.telemetry.enabled": false,
+  "files.autoSave": "afterDelay",
+  "editor.wordWrap": "on"
+}

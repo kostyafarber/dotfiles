@@ -7,6 +7,9 @@ vim.keymap.set("n", "<leader>i", function() vscode.action("extension.toggleBool"
 
 vim.keymap.set("n", "<leader>z", function() vscode.action("workbench.action.toggleZenMode") end)
 
+-- copilot
+vim.keymap.set("n", "<leader>cc", function() vscode.action("workbench.panel.chat.view.copilot.focus") end)
+
 -- editor 
 vim.keymap.set("n", "<leader>l", function() vscode.action("workbench.action.nextEditor") end)
 vim.keymap.set("n", "<leader>h", function() vscode.action("workbench.action.previousEditor") end)
