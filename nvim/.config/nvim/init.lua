@@ -1,5 +1,5 @@
 require("set")
-require("core/keymaps")
+require("core/keymaps")  
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
@@ -17,6 +17,5 @@ vim.opt.rtp:prepend(lazypath)
 require("lazy").setup("plugins")
 
 if vim.g.vscode then
-		require("core/keymaps")
-		require("vscode_keys/keymaps")
+    require("vscode_config/keymaps")
 end
