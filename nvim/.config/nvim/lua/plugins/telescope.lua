@@ -45,12 +45,16 @@ return {
 
         vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
         vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
-        vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
-
-        vim.api.nvim_create_user_command('Telescope code_live_grep', live_grep, {})
-        vim.keymap.set('n', '<leader>fg', live_grep, { desc = "Live grep" })
+        vim.keymap.set('n', '<leader>fg', live_grep, {})
 
         telescope.load_extension("live_grep_args")
+        
+        -- Register the command
+        return require("telescope").register_extension({
+          exports = {
+            live_grep = grep_code
+          },
+        })
     end
 }
 

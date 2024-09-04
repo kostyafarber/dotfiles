@@ -1,17 +1,24 @@
 local v = require('vscode')
 
+-- general
 vim.keymap.set("n", "<leader>ca", function() v.action("editor.action.quickFix") end)
 vim.keymap.set("n", "<leader>i", function() v.action("extension.toggleBool") end)
 vim.keymap.set('n', '<leader>n', 'mciw*<Cmd>nohl<CR>', { remap = true })
-
+ 
 vim.keymap.set("n", "<C-d>", "<C-d>zz")
 vim.keymap.set("n", "<C-u>", "<C-u>zz")
+
+vim.keymap.set("n", "<leader>b", function() v.action("workbench.action.toggleSidebarVisibility") end)
 
 -- github
 vim.keymap.set("n", "<leader>gr", function() v.action("openInGitHub.openProject") end)
 vim.keymap.set("n", "<leader>gf", function() v.action("openInGitHub.openFile") end)
 vim.keymap.set("n", "<leader>gl", function() v.action("issue.copyGithubPermalink") end)
 vim.keymap.set("n", "<leader>gp", function() v.action("pr.openPullRequestOnGitHub") end)
+
+
+-- copilot
+vim.keymap.set("n", "<leader>cc", function() v.action("workbench.panel.chat.view.copilot.focus") end)
 
 -- lsp
 vim.keymap.set("n", "]d", function() v.action("editor.action.marker.next") end)
