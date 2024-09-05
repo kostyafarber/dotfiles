@@ -1,5 +1,7 @@
 # Dotfiles
-A collection of my dotfiles. They include configuration for `nvim`, `tmux`, and packages installed via `brew`. All are managed the very useful gnu `stow` tool.
+A collection of my dotfiles. They include configuration for `nvim`, `tmux`, and packages installed via `brew`. 
+
+All are managed by the very useful gnu tool `stow`.
 
 ```yml
                   ____________________________________ 
