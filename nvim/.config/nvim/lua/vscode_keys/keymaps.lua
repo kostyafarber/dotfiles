@@ -43,7 +43,7 @@ vim.keymap.set("n", "<leader>do", function() v.action("workbench.action.debug.st
 
 vim.keymap.set("n", "<leader>db", function() v.action("editor.debug.action.toggleBreakpoint") end)
 vim.keymap.set("n", "<leader>dw", function() v.action("editor.debug.action.selectionToWatch") end)
-vim.keymap.set("n", "<leader>dce", function() v.action("workbench.debug.viewlet.action.removeAllWatchExpressions") end)
+vim.keymap.set("n", "<leader>dcw", function() v.action("workbench.debug.viewlet.action.removeAllWatchExpressions") end)
 vim.keymap.set("n", "<leader>dcb", function() v.action("workbench.debug.viewlet.action.removeAllBreakpoints") end)
 
 
