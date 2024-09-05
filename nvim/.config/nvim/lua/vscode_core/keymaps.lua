@@ -1,5 +1,7 @@
 local v = require('vscode')
 
+vim.keymap.set("n", "<leader>nr", function() v.action("vscode-neovim.restart") end)
+
 -- general
 vim.keymap.set("n", "<leader>ca", function() v.action("editor.action.quickFix") end)
 vim.keymap.set("n", "<leader>i", function() v.action("extension.toggleBool") end)
@@ -22,6 +24,7 @@ vim.keymap.set("n", "<leader>cc", function() v.action("workbench.panel.chat.view
 
 -- lsp
 vim.keymap.set("n", "]d", function() v.action("editor.action.marker.next") end)
+vim.keymap.set("n", "]d", function() v.action("workbench.action.gotoSymbol") end)
 
 -- editor
 vim.keymap.set("n", "gr", function() v.action("editor.action.rename") end)
