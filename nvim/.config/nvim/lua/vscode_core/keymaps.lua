@@ -4,7 +4,7 @@ local v = require('vscode')
 vim.keymap.set("n", "<leader>ca", function() v.action("editor.action.quickFix") end)
 vim.keymap.set("n", "<leader>i", function() v.action("extension.toggleBool") end)
 vim.keymap.set('n', '<leader>n', 'mciw*<Cmd>nohl<CR>', { remap = true })
- 
+
 vim.keymap.set("n", "<C-d>", "<C-d>zz")
 vim.keymap.set("n", "<C-u>", "<C-u>zz")
 
@@ -25,9 +25,9 @@ vim.keymap.set("n", "]d", function() v.action("editor.action.marker.next") end)
 
 -- editor
 vim.keymap.set("n", "gr", function() v.action("editor.action.rename") end)
-vim.keymap.set("n", "<leader>l", function() v.action("workbench.action.nextEditor") end)
-vim.keymap.set("n", "<leader>h", function() v.action("workbench.action.previousEditor") end)
-vim.keymap.set("n", "<leader>c", function() v.action("workbench.action.closeAllEditors") end)
+vim.keymap.set("n", "<leader>tl", function() v.action("workbench.action.nextEditor") end)
+vim.keymap.set("n", "<leader>th", function() v.action("workbench.action.previousEditor") end)
+vim.keymap.set("n", "<leader>tc", function() v.action("workbench.action.closeAllEditors") end)
 
 vim.keymap.set("n", "<leader>\\", function() v.action("workbench.action.splitEditorRight") end)
 
@@ -53,33 +53,29 @@ vim.keymap.set("n", "<leader>z", function() v.action("workbench.action.toggleZen
 vim.keymap.set("n", "<leader>px", function() v.action("extension.pxToremAndRemToPx") end)
 
 -- -- random
-function cd_current_file()
-    v.action("workbench.action.terminal.sendSequence", { args = { text = "cd ${fileDirname}\n" }})
+local function cd_current_file()
+    v.action("workbench.action.terminal.sendSequence", { args = { text = "cd '${fileDirname}'\n" }})
     v.action("workbench.action.terminal.focus")
-    return
 end
 
-function cd_root()
+local function cd_root()
     v.action("workbench.action.terminal.sendSequence", { args = { text = "cd ${workspaceFolder}\n" }})
     v.action("workbench.action.terminal.focus")
-    return
 end
 
-function run_jest_test() 
-    v.action("workbench.action.terminal.sendSequence", { args = { text = "npx jest ${file} -u\n" }})
-    return
+local function run_jest_test()
+    v.action("workbench.action.terminal.sendSequence", { args = { text = "npx jest '${file}' -u\n" }})
 end
 
-function open_telescope()
+local function open_telescope()
     v.action("workbench.action.terminal.sendSequence", { args = { text = 'nvim . +"Telescope live_grep"\n' }})
     v.action("workbench.action.terminal.focus")
-    return
 end
 
-vim.keymap.set("n", "<leader>ff", open_telescope) 
+vim.keymap.set("n", "<leader>ff", open_telescope)
 
-vim.keymap.set("n", "<leader>cd", cd_current_file) 
-vim.keymap.set("n", "<leader>cr", cd_root) 
+vim.keymap.set("n", "<leader>cd", cd_current_file)
+vim.keymap.set("n", "<leader>cr", cd_root)
 
-vim.keymap.set("n", "<leader>jr", run_jest_test) 
+vim.keymap.set("n", "<leader>jr", run_jest_test)
 
