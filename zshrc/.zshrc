@@ -124,7 +124,6 @@ set -o vi
 alias nrc="nvim $HOME/.config/nvim"
 alias src=". $HOME/.zshrc"
 alias vrc='nvim $HOME/.zshrc'
-alias cd='z'
 
 alias e='exit'
 

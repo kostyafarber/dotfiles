@@ -10,16 +10,15 @@ local mux = wezterm.mux
 -- For example, changing the color scheme:
 config.font = wezterm.font_with_fallback {
   'Berkeley Mono',
-  'RobotoMono Nerd Font Mono',
+  'Hasklug Nerd Font',
 }
 
 config.enable_tab_bar = false
 
-config.color_scheme = 'One Dark Pro'
+config.color_scheme = 'Dark Pastel (Gogh)'
 config.window_background_opacity = 0.9
 config.macos_window_background_blur = 10
 
--- config.default_prog = { '/opt/homebrew/bin/tmux', 'new', '-A', '-s', 'main' }
 config.default_cursor_style = 'SteadyUnderline'
 
 wezterm.on('gui-startup', function(cmd)

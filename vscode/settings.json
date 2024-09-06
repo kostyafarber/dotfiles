@@ -10,7 +10,7 @@
     "jupyter-notebook": "left"
   },
   "jupyter.askForKernelRestart": false,
-  "terminal.external.osxExec": "iTerm.app",
+  "terminal.external.osxExec": "WezTerm",
   "terminal.integrated.fontFamily": "MesloLGL Nerd Font Mono",
   "editor.suggestSelection": "first",
   "editor.suggest.insertMode": "replace",
@@ -74,11 +74,8 @@
   "zenMode.hideLineNumbers": false,
   "zenMode.fullScreen": false,
   "update.showReleaseNotes": false,
-  // Using the light mode
   "indentRainbow.indicatorStyle": "light",
-  // we use a simple 1 pixel wide line
   "indentRainbow.lightIndicatorStyleLineWidth": 1,
-  // the same colors as above but more visible
   "indentRainbow.colors": [
     "rgba(255,255,64,0.3)",
     "rgba(127,255,127,0.3)",
@@ -90,14 +87,14 @@
   "github.copilot.editor.enableAutoCompletions": true,
   "editor.accessibilitySupport": "off",
   "github.copilot.enable": {
-    "*": true, // Enable Copilot for all file types by default
-    "plaintext": false, // Disable Copilot for plain text files
-    "markdown": false, // Disable Copilot for Markdown files
-    "mdx": false // Disable Copilot for MDX files
+    "*": true, 
+    "plaintext": false,
+    "markdown": false,
+    "mdx": false 
   },
   "cSpell.enabled": true,
   "cSpell.userWords": ["Farber", "Kostya"],
-  "redhat.telemetry.enabled": false,
   "files.autoSave": "afterDelay",
-  "editor.wordWrap": "on"
+  "editor.wordWrap": "on",
+  "terminal.explorerKind": "external"
 }
