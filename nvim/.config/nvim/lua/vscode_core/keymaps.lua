@@ -24,7 +24,6 @@ vim.keymap.set("n", "<leader>cc", function() v.action("workbench.panel.chat.view
 
 -- lsp
 vim.keymap.set("n", "]d", function() v.action("editor.action.marker.next") end)
-vim.keymap.set("n", "]d", function() v.action("workbench.action.gotoSymbol") end)
 
 -- editor
 vim.keymap.set("n", "gr", function() v.action("editor.action.rename") end)
@@ -48,7 +47,6 @@ vim.keymap.set("n", "<leader>db", function() v.action("editor.debug.action.toggl
 vim.keymap.set("n", "<leader>dw", function() v.action("editor.debug.action.selectionToWatch") end)
 vim.keymap.set("n", "<leader>dcw", function() v.action("workbench.debug.viewlet.action.removeAllWatchExpressions") end)
 vim.keymap.set("n", "<leader>dcb", function() v.action("workbench.debug.viewlet.action.removeAllBreakpoints") end)
-
 
 vim.keymap.set("n", "<leader>z", function() v.action("workbench.action.toggleZenMode") end)
 
