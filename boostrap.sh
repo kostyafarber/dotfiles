@@ -20,10 +20,31 @@ echo "installing brew..."
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 echo "installing oh-my-zsh..."
-
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
-echo "cloning dotfiles.."
+echo "installing zsh-autosuggestions..."
+git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
+echo "installing nvm..."
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+
+echo "cloning dotfiles.."
 git clone https://github.com/kostyafarber/dotfiles.git .dotfiles
+
+echo "installing brew packages..."
+
+# add brew to the path 
+export PATH="/opt/homebrew/bin:$PATH"
+
+brew bundle install --file="$HOME/.dotfiles/mac/essential/Brewfile"
+
+echo "installing dotfiles..."
+cd .dotfiles
+stow nvim tmux wezterm zshrc
+
+echo "setting mac preferences..."
+chmod +x $HOME/.dotfiles/mac/systemprefs.sh
+$HOME/.dotfiles/mac/systemprefs.sh
+
+
 
