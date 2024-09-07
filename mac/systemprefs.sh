@@ -38,3 +38,17 @@ defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
 # Automatically hide and show the Dock
 defaults write com.apple.dock autohide -bool true
 
+# Disable the “Are you sure you want to open this application?” dialog
+defaults write com.apple.LaunchServices LSQuarantine -bool false
+
+# remapping caps lock to escape
+mkdir -p $HOME/Library/LaunchAgents
+cp $HOME/.dotfiles/mac/essential/keybindings/com.user.remapkeys.plist $HOME/Library/LaunchAgents
+chmod 644 $HOME/Library/LaunchAgents/com.user.remapkeys.plist
+launchctl load ~/Library/LaunchAgents/com.user.remapkeys.plist
+
+# make it available immediately
+hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x700000029}]}'
+
+
+
