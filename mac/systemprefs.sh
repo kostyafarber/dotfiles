@@ -43,7 +43,7 @@ defaults write com.apple.LaunchServices LSQuarantine -bool false
 
 # remapping caps lock to escape
 mkdir -p $HOME/Library/LaunchAgents
-cp $HOME/.dotfiles/mac/essential/keybindings/com.user.remapkeys.plist $HOME/Library/LaunchAgents
+cp $HOME/.dotfiles/mac/keybindings/com.user.remapkeys.plist $HOME/Library/LaunchAgents
 chmod 644 $HOME/Library/LaunchAgents/com.user.remapkeys.plist
 launchctl load ~/Library/LaunchAgents/com.user.remapkeys.plist
 
