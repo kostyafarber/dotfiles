@@ -33,10 +33,7 @@ git clone https://github.com/kostyafarber/dotfiles.git .dotfiles
 
 echo "installing brew packages..."
 
-# add brew to the path 
-export PATH="/opt/homebrew/bin:$PATH"
-
-brew bundle install --file="$HOME/.dotfiles/mac/essential/Brewfile"
+/opt/homebrew/bin/brew bundle install --file="$HOME/.dotfiles/mac/essential/Brewfile"
 
 cp .ascii_castle.txt $HOME/
 
