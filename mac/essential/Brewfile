@@ -1,13 +1,23 @@
-## fundamental 
-cask "visual-studio-code"
-cask "google-chrome"
-cask "iterm2"
-brew "neovim"
-brew "tmux"
+# fundamental apps 
 cask "miniconda"
+cask "iterm2"
 cask "shortcat"
 cask "utm"
 cask "alfred"
+cask "1password"
+cask "1password-cli"
+cask "dropbox"
+cask "font-roboto-mono-nerd-font"
+cask "visual-studio-code"
+cask "google-chrome"
+cask "miniconda"
+cask "spotify"
+cask "wezterm"
+
+# fundamental tools
+brew "neovim"
+brew "defaultbrowser"
+brew "tmux"
 brew "wget"
 brew "stow"
 brew "ripgrep"
@@ -19,8 +29,10 @@ brew "gh"
 brew "fzf"
 brew "git"
 brew "ffmpeg"
+brew "go"
+brew "oh-my-posh"
 
-# vscode extensions
+# fundamental vscode extensions
 vscode "alefragnani.project-manager"
 vscode "asvetliakov.vscode-neovim"
 vscode "bierner.markdown-preview-github-styles"

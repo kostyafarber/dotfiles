@@ -95,5 +95,6 @@
   "cSpell.userWords": ["Farber", "Kostya"],
   "files.autoSave": "afterDelay",
   "editor.wordWrap": "on",
-  "terminal.explorerKind": "external"
+  "terminal.explorerKind": "external",
+  "workbench.colorTheme": "Default Dark+"
 }

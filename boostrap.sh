@@ -38,9 +38,15 @@ export PATH="/opt/homebrew/bin:$PATH"
 
 brew bundle install --file="$HOME/.dotfiles/mac/essential/Brewfile"
 
+cp .ascii_castle.txt $HOME/
+
 echo "installing dotfiles..."
 cd .dotfiles
+
+# overwrite and restore the dotfiles
 stow nvim tmux wezterm zshrc
+stow --adopt --no-folding vscode
+git restore .
 
 echo "setting mac preferences..."
 chmod +x $HOME/.dotfiles/mac/systemprefs.sh

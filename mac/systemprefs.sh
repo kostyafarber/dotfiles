@@ -41,6 +41,9 @@ defaults write com.apple.dock autohide -bool true
 # Disable the “Are you sure you want to open this application?” dialog
 defaults write com.apple.LaunchServices LSQuarantine -bool false
 
+# set chrome as deafult browser
+defaultbrowser chrome
+
 # remapping caps lock to escape
 mkdir -p $HOME/Library/LaunchAgents
 cp $HOME/.dotfiles/mac/keybindings/com.user.remapkeys.plist $HOME/Library/LaunchAgents
