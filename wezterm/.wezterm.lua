@@ -16,6 +16,9 @@ config.macos_window_background_blur = 10
 
 config.default_cursor_style = 'SteadyUnderline'
 
+config.default_prog = { '/opt/homebrew/bin/tmux', 'new-session', '-A', '-s', 'main' }
+
+
 wezterm.on('gui-startup', function(cmd)
   local tab, pane, window = mux.spawn_window(cmd or {})
   window:gui_window():maximize()
