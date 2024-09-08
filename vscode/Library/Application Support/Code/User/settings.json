@@ -96,5 +96,8 @@
   "files.autoSave": "afterDelay",
   "editor.wordWrap": "on",
   "terminal.explorerKind": "external",
-  "workbench.colorTheme": "Default Dark+"
+  "workbench.colorTheme": "Default Dark+",
+  "terminal.integrated.cursorStyle": "underline",
+  "terminal.integrated.fontSize": 11,
+  "terminal.integrated.tabs.defaultColor": "terminal.ansiYellow"
 }
