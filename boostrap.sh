@@ -26,7 +26,8 @@ echo "installing zsh-autosuggestions..."
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
 echo "installing nvm..."
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+curl -o https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+nvm install --lts
 
 echo "cloning dotfiles.."
 git clone https://github.com/kostyafarber/dotfiles.git .dotfiles
@@ -41,8 +42,8 @@ echo "installing dotfiles..."
 cd .dotfiles
 
 # overwrite and restore the dotfiles
-stow nvim tmux wezterm zshrc
-stow --adopt --no-folding vscode
+/opt/homebrew/bin/stow nvim tmux wezterm zshrc
+/opt/homebrew/bin/stow --no-folding vscode
 git restore .
 
 echo "setting mac preferences..."

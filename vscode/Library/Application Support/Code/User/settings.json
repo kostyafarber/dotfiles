@@ -11,7 +11,7 @@
   },
   "jupyter.askForKernelRestart": false,
   "terminal.external.osxExec": "WezTerm",
-  "terminal.integrated.fontFamily": "MesloLGL Nerd Font Mono",
+  "terminal.integrated.fontFamily": "RobotoMono Nerd Font",
   "editor.suggestSelection": "first",
   "editor.suggest.insertMode": "replace",
   "terminal.integrated.env.osx": {

@@ -42,7 +42,7 @@ defaults write com.apple.dock autohide -bool true
 defaults write com.apple.LaunchServices LSQuarantine -bool false
 
 # set chrome as deafult browser
-defaultbrowser chrome
+/opt/homebrew/bin/defaultbrowser chrome
 
 # remapping caps lock to escape
 mkdir -p $HOME/Library/LaunchAgents
@@ -52,6 +52,8 @@ launchctl load ~/Library/LaunchAgents/com.user.remapkeys.plist
 
 # make it available immediately
 hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x700000029}]}'
+
+killall Dock
 
 
 
