@@ -13,6 +13,7 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
+export FZF_DEFAULT_OPTS="--color=fg+:yellow"
 
 export XDG_CONFIG_HOME="$HOME/.config"
 # Set name of the theme to load --- if set to "random", it will
@@ -122,7 +123,7 @@ autoload -U compinit && compinit
 set -o vi
 
 # system
-alias nrc="nvim $HOME/.config/nvim"
+alias drc="nvim $HOME/.dotfiles"
 alias nrd='npm run dev'
 alias src=". $HOME/.zshrc"
 alias vrc='nvim $HOME/.zshrc'
