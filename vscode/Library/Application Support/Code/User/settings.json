@@ -4,13 +4,14 @@
   "workbench.editorAssociations": {
     "*.ipynb": "jupyter-notebook"
   },
+  "workbench.activityBar.orientation": "vertical",
   "liveServer.settings.donotShowInfoMsg": true,
   "notebook.cellToolbarLocation": {
     "default": "right",
     "jupyter-notebook": "left"
   },
   "jupyter.askForKernelRestart": false,
-  "terminal.external.osxExec": "WezTerm",
+  "terminal.external.osxExec": "WezTerm.app",
   "terminal.integrated.fontFamily": "RobotoMono Nerd Font",
   "editor.suggestSelection": "first",
   "editor.suggest.insertMode": "replace",

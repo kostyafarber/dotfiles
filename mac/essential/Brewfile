@@ -1,6 +1,7 @@
 # fundamental apps 
 cask "miniconda"
 cask "iterm2"
+cask "rectangle"
 cask "shortcat"
 cask "alfred"
 cask "1password"
