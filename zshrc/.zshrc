@@ -13,7 +13,9 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
+export FZF_DEFAULT_OPTS="--color=fg+:yellow"
 
+export XDG_CONFIG_HOME="$HOME/.config"
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
@@ -121,7 +123,8 @@ autoload -U compinit && compinit
 set -o vi
 
 # system
-alias nrc="nvim $HOME/.config/nvim"
+alias drc="nvim $HOME/.dotfiles"
+alias nrd='npm run dev'
 alias src=". $HOME/.zshrc"
 alias vrc='nvim $HOME/.zshrc'
 
@@ -132,7 +135,11 @@ alias gca='git commit --amend'
 alias gta='git add .'
 alias gpo='git push origin'
 alias gt='git status'
-alias nrd='npm run dev'
+alias gp='git pull'
+alias gl='git log'
+alias lg='lazygit'
+
+
 
 neofetch --ascii "$HOME/.ascii_castle.txt" --ascii_colors 8 210 1 9 4 1 --colors 4 1 7 1
 
