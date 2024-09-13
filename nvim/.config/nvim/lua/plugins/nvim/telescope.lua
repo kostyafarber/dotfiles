@@ -44,7 +44,13 @@ return {
             })
         end
 
-        vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
+        local function find_files()
+            builtin.find_files({
+                find_command = {'rg', '--files', '--hidden', '-g', '!.git'}
+            })
+        end
+
+        vim.keymap.set('n', '<leader>ff', find_files, {})
         vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
         vim.keymap.set('n', '<leader>fg', live_grep, {})
 

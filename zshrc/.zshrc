@@ -137,11 +137,11 @@ alias gpo='git push origin'
 alias gt='git status'
 alias gp='git pull'
 alias gl='git log'
+alias gs='git stash'
+alias gtp='git stash pop'
+
+
 alias lg='lazygit'
-
-
-
-neofetch --ascii "$HOME/.ascii_castle.txt" --ascii_colors 8 210 1 9 4 1 --colors 4 1 7 1
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 eval "$(oh-my-posh init zsh --config /opt/homebrew/opt/oh-my-posh/themes/agnoster.omp.json)"
@@ -190,3 +190,5 @@ add-zsh-hook chpwd load-nvmrc
 load-nvmrc
 
 export PATH="/opt/homebrew/opt/grep/libexec/gnubin:$PATH"
+
+pokemon-colorscripts -r --no-title | fastfetch
