@@ -17,6 +17,7 @@ vim.keymap.set("n", "<leader>gr", function() v.action("openInGitHub.openProject"
 vim.keymap.set("n", "<leader>gf", function() v.action("openInGitHub.openFile") end)
 vim.keymap.set("n", "<leader>gl", function() v.action("issue.copyGithubPermalink") end)
 vim.keymap.set("n", "<leader>gp", function() v.action("pr.openPullRequestOnGitHub") end)
+vim.keymap.set("n", "<leader>ga", function() v.action("openInGitHub.openActions") end)
 
 
 -- copilot

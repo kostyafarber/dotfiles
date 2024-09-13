@@ -16,6 +16,7 @@ cask "wezterm"
 # fundamental tools
 brew "neovim"
 brew "defaultbrowser"
+brew "fastfetch"
 brew "tmux"
 brew "wget"
 brew "stow"
