@@ -131,17 +131,26 @@ alias vrc='nvim $HOME/.zshrc'
 alias e='exit'
 
 # git
+alias lg='lazygit'
 alias gca='git commit --amend'
 alias gta='git add .'
 alias gpo='git push origin'
+alias gpof='git push origin --force'
 alias gt='git status'
 alias gp='git pull'
 alias gl='git log'
 alias gs='git stash'
 alias gtp='git stash pop'
+alias gsu="git pull upstream master && git push origin"
 
 
-alias lg='lazygit'
+# ladybird
+alias lr="CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ ./Meta/ladybird.sh run ladybird"
+alias lrd="BUILD_PRESET=Debug CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ ./Meta/ladybird.sh run ladybird --debug-process WebContent"
+alias lt="cmake --preset default && cmake --build --preset default && ctest --preset default"
+
+
+
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 eval "$(oh-my-posh init zsh --config /opt/homebrew/opt/oh-my-posh/themes/agnoster.omp.json)"

@@ -54,23 +54,24 @@ vim.keymap.set("n", "<leader>z", function() v.action("workbench.action.toggleZen
 -- extensions
 vim.keymap.set("n", "<leader>px", function() v.action("extension.pxToremAndRemToPx") end)
 
+
 -- -- random
 local function cd_current_file()
-    v.action("workbench.action.terminal.sendSequence", { args = { text = "cd '${fileDirname}'\n" }})
+    v.action("workbench.action.terminal.sendSequence", { args = { text = "cd '${fileDirname}'\n" } })
     v.action("workbench.action.terminal.focus")
 end
 
 local function cd_root()
-    v.action("workbench.action.terminal.sendSequence", { args = { text = "cd ${workspaceFolder}\n" }})
+    v.action("workbench.action.terminal.sendSequence", { args = { text = "cd ${workspaceFolder}\n" } })
     v.action("workbench.action.terminal.focus")
 end
 
 local function run_jest_test()
-    v.action("workbench.action.terminal.sendSequence", { args = { text = "npx jest '${file}' -u\n" }})
+    v.action("workbench.action.terminal.sendSequence", { args = { text = "npx jest '${file}' -u\n" } })
 end
 
 local function open_telescope()
-    v.action("workbench.action.terminal.sendSequence", { args = { text = 'nvim . +"Telescope live_grep"\n' }})
+    v.action("workbench.action.terminal.sendSequence", { args = { text = 'nvim . +"Telescope live_grep"\n' } })
     v.action("workbench.action.terminal.focus")
 end
 
@@ -80,4 +81,3 @@ vim.keymap.set("n", "<leader>cd", cd_current_file)
 vim.keymap.set("n", "<leader>cr", cd_root)
 
 vim.keymap.set("n", "<leader>jr", run_jest_test)
-
