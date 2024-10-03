@@ -1,19 +1,17 @@
-export PATH=$HOME/bin:/usr/local/bin:$PATH
-
 if [ -f $HOME/.secrets ]; then
   source $HOME/.secrets
 fi
 
-if [ -f $HOME/.work ]; then
-  source $HOME/.work
-fi
+export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 zmodload zsh/zprof
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
+
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 export FZF_DEFAULT_OPTS="--color=fg+:yellow"
+
 
 export XDG_CONFIG_HOME="$HOME/.config"
 # Set name of the theme to load --- if set to "random", it will
@@ -91,9 +89,10 @@ plugins=(
 fpath+=$HOME/.oh-my-zsh/custom/plugins/conda-zsh-completion
 
 source $ZSH/oh-my-zsh.sh
-autoload -U compinit && compinit
 
 # User configuration
+autoload -U compinit && compinit
+
 
 # export MANPATH="/usr/local/man:$MANPATH"
 
@@ -101,11 +100,11 @@ autoload -U compinit && compinit
 # export LANG=en_US.UTF-8
 
 # Preferred editor for local and remote sessions
-# if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
-# else
-#   export EDITOR='mvim'
-# fi
+if [[ -n $SSH_CONNECTION ]]; then
+  export EDITOR='vim'
+else
+  export EDITOR='nvim'
+fi
 
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
@@ -139,6 +138,8 @@ alias gpof='git push origin --force'
 alias gt='git status'
 alias gp='git pull'
 alias gl='git log'
+
+alias gb="git stash && git pull && git stash pop"
 alias gs='git stash'
 alias gtp='git stash pop'
 alias gsu="git pull upstream master && git push origin"
@@ -148,7 +149,6 @@ alias gsu="git pull upstream master && git push origin"
 alias lr="CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ ./Meta/ladybird.sh run ladybird"
 alias lrd="BUILD_PRESET=Debug CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ ./Meta/ladybird.sh run ladybird --debug-process WebContent"
 alias lt="cmake --preset default && cmake --build --preset default && ctest --preset default"
-
 
 
 
@@ -199,5 +199,10 @@ add-zsh-hook chpwd load-nvmrc
 load-nvmrc
 
 export PATH="/opt/homebrew/opt/grep/libexec/gnubin:$PATH"
+
+# don't know why putting my work file here applies the keybindings correctly
+if [ -f $HOME/.work ]; then
+ source $HOME/.work
+fi
 
 pokemon-colorscripts -r --no-title | fastfetch
