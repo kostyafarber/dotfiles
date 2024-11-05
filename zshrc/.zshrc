@@ -131,6 +131,8 @@ alias e='exit'
 
 # git
 alias lg='lazygit'
+alias gc='git commit'
+alias gcr='git comit --reuse-message=ORIG_HEAD'
 alias gca='git commit --amend'
 alias gta='git add .'
 alias gpo='git push origin'
@@ -146,9 +148,13 @@ alias gsu="git pull upstream master && git push origin"
 
 
 # ladybird
+alias lc="./Meta/ladybird.sh delete"
 alias lr="CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ ./Meta/ladybird.sh run ladybird"
-alias lrd="BUILD_PRESET=Debug CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ ./Meta/ladybird.sh run ladybird --debug-process WebContent"
+alias lrd="CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ BUILD_PRESET=Debug ./Meta/ladybird.sh run ladybird"
 alias lt="cmake --preset default && cmake --build --preset default && ctest --preset default"
+alias lts='cmake --preset Sanitizer && cmake --build --preset Sanitizer && ctest --preset Sanitizer'
+alias lqon='cmake --preset default -DENABLE_QT=ON'
+alias lqof='cmake --preset default -DENABLE_QT=OFF'
 
 
 
