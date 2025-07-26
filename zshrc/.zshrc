@@ -3,6 +3,7 @@ if [ -f $HOME/.secrets ]; then
 fi
 
 export PATH=$HOME/bin:/usr/local/bin:$PATH
+export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
 
 zmodload zsh/zprof
 eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -18,7 +19,7 @@ export XDG_CONFIG_HOME="$HOME/.config"
 # load a random theme each time oh-my-zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="robbyrussell"
+# ZSH_THEME="robbyrussell"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -43,6 +44,7 @@ zstyle ':omz:update' mode reminder  # just remind me to update when it's time
 
 # Uncomment the following line if pasting URLs and other text is messed up.
 # DISABLE_MAGIC_FUNCTIONS="true"
+
 
 # Uncomment the following line to disable colors in ls.
 # DISABLE_LS_COLORS="true"
@@ -132,7 +134,8 @@ alias e='exit'
 # git
 alias lg='lazygit'
 alias gc='git commit'
-alias gcr='git comit --reuse-message=ORIG_HEAD'
+alias gr='git reset HEAD~1'
+alias gcr='git commit --reuse-message=ORIG_HEAD'
 alias gca='git commit --amend'
 alias gta='git add .'
 alias gpo='git push origin'
@@ -154,12 +157,16 @@ alias lrd="CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clan
 alias lt="cmake --preset default && cmake --build --preset default && ctest --preset default"
 alias lts='cmake --preset Sanitizer && cmake --build --preset Sanitizer && ctest --preset Sanitizer'
 alias lqon='cmake --preset default -DENABLE_QT=ON'
-alias lqof='cmake --preset default -DENABLE_QT=OFF'
+alias lqoff='cmake --preset default -DENABLE_QT=OFF'
 
 
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-eval "$(oh-my-posh init zsh --config /opt/homebrew/opt/oh-my-posh/themes/agnoster.omp.json)"
+# eval "$(oh-my-posh init zsh --config /opt/homebrew/opt/oh-my-posh/themes/agnoster.omp.json)"
+eval "$(oh-my-posh init zsh --config $(brew --prefix oh-my-posh)/themes/agnoster.omp.json)"
+
+
+
 
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 
@@ -212,3 +219,15 @@ if [ -f $HOME/.work ]; then
 fi
 
 pokemon-colorscripts -r --no-title | fastfetch
+
+[ -f "/Users/kostyafarber/.ghcup/env" ] && . "/Users/kostyafarber/.ghcup/env" # ghcup-env
+
+# pnpm
+export PNPM_HOME="/Users/kostyafarber/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
+. "$HOME/.local/bin/env"
