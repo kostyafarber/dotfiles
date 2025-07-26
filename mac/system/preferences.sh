@@ -44,14 +44,17 @@ defaults write com.apple.LaunchServices LSQuarantine -bool false
 # set chrome as deafult browser
 /opt/homebrew/bin/defaultbrowser chrome
 
-# remapping caps lock to escape
+# remapping escape to caps lock
 mkdir -p $HOME/Library/LaunchAgents
 cp $HOME/.dotfiles/mac/keybindings/com.user.remapkeys.plist $HOME/Library/LaunchAgents
 chmod 644 $HOME/Library/LaunchAgents/com.user.remapkeys.plist
-launchctl load ~/Library/LaunchAgents/com.user.remapkeys.plist
 
-# make it available immediately
-hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x700000029}]}'
+# Use modern launchctl commands instead of deprecated 'load'
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.remapkeys.plist
+launchctl enable gui/$(id -u)/com.user.remapkeys
+
+# make it available immediately - maps Escape to Caps Lock
+hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000029,"HIDKeyboardModifierMappingDst":0x700000039}]}''
 
 killall Dock
 
