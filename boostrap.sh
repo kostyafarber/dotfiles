@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# Helper functions
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+dir_exists() {
+    [ -d "$1" ]
+}
+
+file_exists() {
+    [ -f "$1" ]
+}
+
 cat << "EOF"
     ____              __       __                 
    / __ )____  ____  / /______/ /__________ _____ 
@@ -15,28 +28,66 @@ printf '\033[1J'
 
 echo "boostrapping system..." 
 
-echo "installing brew..."
+# Check and install brew
+if ! command_exists brew; then
+    echo "installing brew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+else
+    echo "brew already installed, skipping..."
+fi
 
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Check and install oh-my-zsh
+if ! dir_exists "$HOME/.oh-my-zsh"; then
+    echo "installing oh-my-zsh..."
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+else
+    echo "oh-my-zsh already installed, skipping..."
+fi
 
-echo "installing oh-my-zsh..."
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+# Check and install zsh-autosuggestions
+if ! dir_exists "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions"; then
+    echo "installing zsh-autosuggestions..."
+    git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+else
+    echo "zsh-autosuggestions already installed, skipping..."
+fi
 
-echo "installing zsh-autosuggestions..."
-git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+# Check and install nvm
+if ! dir_exists "$HOME/.nvm"; then
+    echo "installing nvm..."
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    # Source nvm for current session
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm install --lts
+else
+    echo "nvm already installed, skipping..."
+    # Still check if Node.js is installed
+    if ! command_exists node; then
+        echo "installing Node.js LTS..."
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        nvm install --lts
+    fi
+fi
 
-echo "installing nvm..."
-curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-nvm install --lts
-
-echo "cloning dotfiles.."
-git clone https://github.com/kostyafarber/dotfiles.git .dotfiles
+# Check and clone dotfiles
+if ! dir_exists ".dotfiles"; then
+    echo "cloning dotfiles..."
+    git clone https://github.com/kostyafarber/dotfiles.git .dotfiles
+else
+    echo "dotfiles already cloned, skipping..."
+fi
 
 echo "installing brew packages..."
-
 /opt/homebrew/bin/brew bundle install --file="$HOME/.dotfiles/mac/essential/Brewfile"
 
-cp .ascii_castle.txt $HOME/
+# Check and copy ascii file
+if ! file_exists "$HOME/.ascii_castle.txt"; then
+    cp .ascii_castle.txt $HOME/
+else
+    echo ".ascii_castle.txt already exists in home directory, skipping..."
+fi
 
 echo "installing dotfiles..."
 cd .dotfiles
@@ -47,8 +98,8 @@ cd .dotfiles
 git restore .
 
 echo "setting mac preferences..."
-chmod +x $HOME/.dotfiles/mac/systemprefs.sh
-$HOME/.dotfiles/mac/systemprefs.sh
+chmod +x $HOME/.dotfiles/mac/system/preferences.sh
+$HOME/.dotfiles/mac/system/preferences.sh
 
 
 
