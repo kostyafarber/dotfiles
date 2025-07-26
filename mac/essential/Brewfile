@@ -1,19 +1,15 @@
 # fundamental apps 
-cask "miniconda"
-cask "iterm2"
 cask "rectangle"
-cask "shortcat"
 cask "alfred"
 cask "1password"
 cask "1password-cli"
 cask "font-roboto-mono-nerd-font"
-cask "visual-studio-code"
+cask "cursor"
 cask "google-chrome"
-cask "miniconda"
 cask "spotify"
-cask "wezterm"
 
 # fundamental tools
+brew "uv"
 brew "neovim"
 brew "defaultbrowser"
 brew "fastfetch"
