@@ -26,7 +26,7 @@ echo "installing zsh-autosuggestions..."
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
 echo "installing nvm..."
-curl -o https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 nvm install --lts
 
 echo "cloning dotfiles.."
