@@ -1,105 +1,112 @@
 #!/usr/bin/env bash
 
-# Helper functions
-command_exists() {
-    command -v "$1" &> /dev/null
-}
+set -e  # Exit on any error
 
-dir_exists() {
-    [ -d "$1" ]
-}
+echo "🍎 Setting up macOS preferences..."
 
-file_exists() {
-    [ -f "$1" ]
-}
+# Dock settings
+echo "⚙️  Configuring Dock..."
+defaults write com.apple.dock persistent-apps -array
+defaults write com.apple.dock static-only -bool true
+defaults write com.apple.dock show-recents -bool false
+defaults write com.apple.dock autohide -bool true
 
-cat << "EOF"
-    ____              __       __                 
-   / __ )____  ____  / /______/ /__________ _____ 
-  / __  / __ \/ __ \/ __/ ___/ __/ ___/ __ `/ __ \
- / /_/ / /_/ / /_/ / /_(__  ) /_/ /  / /_/ / /_/ /
-/_____/\____/\____/\__/____/\__/_/   \__,_/ .___/ 
-                                         /_/      
-EOF
+# Security settings
+echo "🔒 Configuring security settings..."
+defaults write com.apple.LaunchServices LSQuarantine -bool false
 
-sleep 2
+# Screenshot settings
+echo "📸 Configuring screenshot settings..."
+defaults write com.apple.screencapture location -string "${HOME}/Desktop"
+defaults write com.apple.screencapture type -string "png"
 
-printf '\033[1J'
+# Font rendering
+echo "🖥️  Configuring display settings..."
+defaults write NSGlobalDomain AppleFontSmoothing -int 2
 
-echo "boostrapping system..." 
+# Finder settings
+echo "📁 Configuring Finder..."
+defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+defaults write com.apple.finder ShowStatusBar -bool true
+defaults write com.apple.finder ShowPathbar -bool true
+defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+defaults write com.apple.finder _FXSortFoldersFirst -bool true
+defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
 
-# Check and install brew
-if ! command_exists brew; then
-    echo "installing brew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Set default browser
+echo "🌐 Setting Chrome as default browser..."
+if command -v /opt/homebrew/bin/defaultbrowser &> /dev/null; then
+    /opt/homebrew/bin/defaultbrowser chrome
 else
-    echo "brew already installed, skipping..."
+    echo "⚠️  defaultbrowser not found at /opt/homebrew/bin/defaultbrowser"
+    echo "   You may need to install it with: brew install defaultbrowser"
 fi
 
-# Check and install oh-my-zsh
-if ! dir_exists "$HOME/.oh-my-zsh"; then
-    echo "installing oh-my-zsh..."
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-else
-    echo "oh-my-zsh already installed, skipping..."
-fi
+# Key remapping setup
+echo "⌨️  Setting up key remapping (Caps Lock -> Escape)..."
 
-# Check and install zsh-autosuggestions
-if ! dir_exists "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions"; then
-    echo "installing zsh-autosuggestions..."
-    git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-else
-    echo "zsh-autosuggestions already installed, skipping..."
-fi
+# Clean up any existing service first
+launchctl bootout gui/$(id -u)/com.user.remapkeys 2>/dev/null || true
+launchctl disable gui/$(id -u)/com.user.remapkeys 2>/dev/null || true
 
-# Check and install nvm
-if ! dir_exists "$HOME/.nvm"; then
-    echo "installing nvm..."
-    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-    # Source nvm for current session
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    nvm install --lts
+# Set up the launch agent
+mkdir -p "$HOME/Library/LaunchAgents"
+
+if [[ -f "$HOME/.dotfiles/mac/keybindings/com.user.remapkeys.plist" ]]; then
+    cp "$HOME/.dotfiles/mac/keybindings/com.user.remapkeys.plist" "$HOME/Library/LaunchAgents/"
+    chmod 644 "$HOME/Library/LaunchAgents/com.user.remapkeys.plist"
+    
+    # Bootstrap and enable the service
+    if launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.remapkeys.plist; then
+        echo "✅ LaunchAgent bootstrapped successfully"
+        
+        if launchctl enable gui/$(id -u)/com.user.remapkeys; then
+            echo "✅ LaunchAgent enabled successfully"
+        else
+            echo "⚠️  Failed to enable LaunchAgent, but key remapping will still work"
+        fi
+    else
+        echo "⚠️  Failed to bootstrap LaunchAgent"
+        echo "   Add this to your login items manually if needed"
+    fi
 else
-    echo "nvm already installed, skipping..."
-    # Still check if Node.js is installed
-    if ! command_exists node; then
-        echo "installing Node.js LTS..."
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-        nvm install --lts
+    echo "⚠️  Plist file not found at $HOME/.dotfiles/mac/keybindings/com.user.remapkeys.plist"
+    echo "   Creating a basic key remapping setup..."
+    
+    # Apply the key mapping immediately
+    hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x700000029}]}'
+    echo "⌨️  Key remapping applied for current session"
+    
+    # Add to shell profile for persistence
+    if [[ -f ~/.zshrc ]]; then
+        if ! grep -q "hidutil property --set" ~/.zshrc; then
+            echo 'hidutil property --set '"'"'{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x700000029}]}'"'"'' >> ~/.zshrc
+            echo "📝 Added key remapping to ~/.zshrc"
+        fi
     fi
 fi
 
-# Check and clone dotfiles
-if ! dir_exists ".dotfiles"; then
-    echo "cloning dotfiles..."
-    git clone https://github.com/kostyafarber/dotfiles.git .dotfiles
+# Apply the key mapping immediately
+echo "⌨️  Applying key remapping for current session..."
+hidutil property --set '{"UserKeyMapping":[{"HIDKeyboardModifierMappingSrc":0x700000039,"HIDKeyboardModifierMappingDst":0x700000029}]}'
+
+if hidutil property --get "UserKeyMapping" | grep -q "0x700000039"; then
+    echo "✅ Key remapping verified: Caps Lock -> Escape"
 else
-    echo "dotfiles already cloned, skipping..."
+    echo "⚠️  Key remapping may not have applied correctly"
 fi
 
-echo "installing brew packages..."
-/opt/homebrew/bin/brew bundle install --file="$HOME/.dotfiles/mac/essential/Brewfile"
+# Restart Dock to apply changes
+echo "🔄 Restarting Dock..."
+killall Dock
 
-# Check and copy ascii file
-if ! file_exists "$HOME/.ascii_castle.txt"; then
-    cp .ascii_castle.txt $HOME/
-else
-    echo ".ascii_castle.txt already exists in home directory, skipping..."
-fi
-
-echo "installing dotfiles..."
-cd .dotfiles
-
-# overwrite and restore the dotfiles
-/opt/homebrew/bin/stow nvim tmux wezterm zshrc
-/opt/homebrew/bin/stow --no-folding vscode
-git restore .
-
-echo "setting mac preferences..."
-chmod +x $HOME/.dotfiles/mac/system/preferences.sh
-$HOME/.dotfiles/mac/system/preferences.sh
-
-
-
+echo "🎉 macOS setup complete!"
+echo ""
+echo "Changes applied:"
+echo "  • Dock configured (hidden, no recent apps)"
+echo "  • Finder enhanced (extensions, status bar, path bar)"
+echo "  • Screenshots saved to Desktop as PNG"
+echo "  • Caps Lock mapped to Escape"
+echo "  • Chrome set as default browser (if installed)"
+echo ""
+echo "Note: Some changes may require a logout/login to take full effect."
