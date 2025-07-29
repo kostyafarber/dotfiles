@@ -1,9 +1,9 @@
 # fundamental apps 
+cask "raycast"
 cask "rectangle"
-cask "alfred"
 cask "1password"
 cask "1password-cli"
-cask "font-roboto-mono-nerd-font"
+cask "font-fira-code-nerd-font"
 cask "cursor"
 cask "google-chrome"
 cask "spotify"
