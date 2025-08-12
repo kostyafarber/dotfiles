@@ -11,13 +11,14 @@ vim.o.shiftwidth = 4 -- Number of spaces inserted when indenting
 
 vim.o.incsearch = true
 
+vim.keymap.set({ "v", "o" }, "ah", "at", { desc = "Around HTML tag" })
+
 local cmd = vim.cmd
 
 -- Highlight on yank
-cmd [[
+cmd([[
     augroup highlight_yank
         autocmd!
         autocmd TextYankPost * silent! lua vim.highlight.on_yank { higroup="IncSearch", timeout=100}
     augroup END
-]]
-
+]])
