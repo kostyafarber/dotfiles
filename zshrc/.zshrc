@@ -12,8 +12,6 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 export FZF_DEFAULT_OPTS="--color=fg+:yellow"
-
-
 export XDG_CONFIG_HOME="$HOME/.config"
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -161,8 +159,8 @@ alias lqoff='cmake --preset default -DENABLE_QT=OFF'
 
 
 
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-# eval "$(oh-my-posh init zsh --config /opt/homebrew/opt/oh-my-posh/themes/agnoster.omp.json)"
+# fzf key bindings and completion
+source <(fzf --zsh)
 eval "$(oh-my-posh init zsh --config $(brew --prefix oh-my-posh)/themes/agnoster.omp.json)"
 
 
@@ -230,4 +228,3 @@ case ":$PATH:" in
 esac
 # pnpm end
 
-. "$HOME/.local/bin/env"
