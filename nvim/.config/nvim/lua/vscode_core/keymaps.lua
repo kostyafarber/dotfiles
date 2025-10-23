@@ -54,6 +54,8 @@ vim.keymap.set("n", "<leader>z", function() v.action("workbench.action.toggleZen
 -- extensions
 vim.keymap.set("n", "<leader>px", function() v.action("extension.pxToremAndRemToPx") end)
 
+-- cursor
+vim.keymap.set("n", "<leader>ct", function() v.action("editor.cpp.toggle") end)
 
 -- -- random
 local function cd_current_file()

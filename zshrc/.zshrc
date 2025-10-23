@@ -126,13 +126,24 @@ alias drc="nvim $HOME/.dotfiles"
 alias nrd='npm run dev'
 alias src=". $HOME/.zshrc"
 alias vrc='nvim $HOME/.zshrc'
+alias salias='alias | fzf --preview 'echo {}' --preview-window=up:3:wrap'
+
+tempe () {
+  cd "$(mktemp -d)"
+  chmod -R 0700 .
+  if [[ $# -eq 1 ]]; then
+    \mkdir -p "$1"
+    cd "$1"
+    chmod -R 0700 .
+  fi
+}
 
 alias e='exit'
 
 # git
 alias lg='lazygit'
 alias gc='git commit'
-alias gr='git reset HEAD~1'
+alias grh='git reset HEAD~1'
 alias gcr='git commit --reuse-message=ORIG_HEAD'
 alias gca='git commit --amend'
 alias gta='git add .'
@@ -141,6 +152,8 @@ alias gpof='git push origin --force'
 alias gt='git status'
 alias gp='git pull'
 alias gl='git log'
+
+alias gcm='git checkout main'
 
 alias gb="git stash && git pull && git stash pop"
 alias gs='git stash'
@@ -157,14 +170,9 @@ alias lts='cmake --preset Sanitizer && cmake --build --preset Sanitizer && ctest
 alias lqon='cmake --preset default -DENABLE_QT=ON'
 alias lqoff='cmake --preset default -DENABLE_QT=OFF'
 
-
-
 # fzf key bindings and completion
 source <(fzf --zsh)
 eval "$(oh-my-posh init zsh --config $(brew --prefix oh-my-posh)/themes/agnoster.omp.json)"
-
-
-
 
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 
