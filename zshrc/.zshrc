@@ -126,6 +126,7 @@ alias drc="nvim $HOME/.dotfiles"
 alias nrd='npm run dev'
 alias src=". $HOME/.zshrc"
 alias vrc='nvim $HOME/.zshrc'
+alias crc='nvim $HOME/.claude'
 alias salias='alias | fzf --preview 'echo {}' --preview-window=up:3:wrap'
 
 tempe () {
@@ -146,6 +147,7 @@ alias gc='git commit'
 alias grh='git reset HEAD~1'
 alias gcr='git commit --reuse-message=ORIG_HEAD'
 alias gca='git commit --amend'
+alias gcan='git commit --amend --no-verify'
 alias gta='git add .'
 alias gpo='git push origin'
 alias gpof='git push origin --force'
@@ -160,6 +162,18 @@ alias gs='git stash'
 alias gtp='git stash pop'
 alias gsu="git pull upstream master && git push origin"
 
+gco() {
+    local branch=$(git branch -a --format='%(refname:short)' --sort=-committerdate | \
+        grep -v '^HEAD$' | \
+        fzf --exact --ansi \
+            --preview 'git log --oneline --color -n 5 {} && echo "" && git diff --stat --color HEAD...{} 2>/dev/null' \
+            --preview-window=right:60%)
+    
+    if [ -n "$branch" ]; then
+        branch="${branch#origin/}"
+        git checkout "$branch"
+    fi
+}
 
 # ladybird
 alias lc="./Meta/ladybird.sh delete"
@@ -236,3 +250,4 @@ case ":$PATH:" in
 esac
 # pnpm end
 
+export PATH="$HOME/.local/bin:$PATH"

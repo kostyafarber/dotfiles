@@ -32,6 +32,12 @@ vim.keymap.set("n", "<leader>tl", function() v.action("workbench.action.nextEdit
 vim.keymap.set("n", "<leader>th", function() v.action("workbench.action.previousEditor") end)
 vim.keymap.set("n", "<leader>tc", function() v.action("workbench.action.closeAllEditors") end)
 
+-- navigation 
+vim.keymap.set('n', '<leader>ek', function() v.action('workbench.action.moveActiveEditorGroupUp') end)
+vim.keymap.set('n', '<leader>ej', function() v.action('workbench.action.moveActiveEditorGroupDown') end)
+vim.keymap.set('n', '<leader>eh', function() v.action('workbench.action.moveActiveEditorGroupLeft') end)
+vim.keymap.set('n', '<leader>el', function() v.action('workbench.action.moveActiveEditorGroupRight') end)
+
 vim.keymap.set("n", "<leader>\\", function() v.action("workbench.action.splitEditorRight") end)
 
 -- terminal

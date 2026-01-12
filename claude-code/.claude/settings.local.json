@@ -9,7 +9,9 @@
       "Bash(stow:*)",
       "Bash(ls:*)",
       "Bash(claude:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
