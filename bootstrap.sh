@@ -43,7 +43,7 @@ cd .dotfiles
 
 # overwrite and restore the dotfiles
 /opt/homebrew/bin/stow nvim tmux wezterm zshrc fastfetch
-/opt/homebrew/bin/stow --no-folding vscode
+/opt/homebrew/bin/stow --no-folding vscode claude-code
 git restore .
 
 echo "setting mac preferences..."
