@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 cat << "EOF"
     ____              __       __                 
@@ -42,10 +43,10 @@ echo "installing dotfiles..."
 cd .dotfiles
 
 # overwrite and restore the dotfiles
-/opt/homebrew/bin/stow nvim tmux wezterm zshrc fastfetch
 /opt/homebrew/bin/stow --no-folding vscode claude-code
+/opt/homebrew/bin/stow nvim tmux wezterm zshrc fastfetch
 git restore .
 
 echo "setting mac preferences..."
-chmod +x $HOME/.dotfiles/mac/systemprefs.sh
-$HOME/.dotfiles/mac/system/preferences.sh
+chmod +x "$HOME/.dotfiles/mac/system/preferences.sh"
+"$HOME/.dotfiles/mac/system/preferences.sh"
