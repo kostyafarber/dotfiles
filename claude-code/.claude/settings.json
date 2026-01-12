@@ -1,0 +1,28 @@
+{
+  "model": "haiku",
+ "hooks": {
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "terminal-notifier -title \"٩(◕‿◕)۶\" -message \"Claudopilis NEEDS you\" -sender com.todesktop.230313mzl4w4u92"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "terminal-notifier -title \"(｡•́︿•̀｡)\" -message \"Claudopilis says goodbye\" -sender com.todesktop.230313mzl4w4u92"
+          }
+        ]
+      }
+    ]
+  },
+  "alwaysThinkingEnabled": true
+}

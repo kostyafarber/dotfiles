@@ -1,0 +1,7 @@
+# Ignore everything by default
+*
+
+# Explicitly track only settings files
+!.gitignore
+!settings.json
+!settings.local.json
