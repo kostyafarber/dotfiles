@@ -57,10 +57,13 @@
   "terminal.integrated.profiles.osx": {
     "tmux-shell": {
       "path": "tmux",
-      "args": ["new-session", "-A", "-s", "vscode:${workspaceFolder}"]
+      "args": ["new-session", "-A", "-s", "vscode:${workspaceFolderBasename}"]
     }
   },
   "terminal.integrated.defaultProfile.osx": "tmux-shell",
+  "terminal.integrated.mouseWheelScrollSensitivity": 0.15,
+  "terminal.integrated.fastScrollSensitivity": 0.15,
+  "terminal.integrated.smoothScrolling": false,
   "editor.formatOnSave": true,
   "go.toolsManagement.autoUpdate": true,
   "extensions.experimental.affinity": {

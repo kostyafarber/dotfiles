@@ -140,6 +140,8 @@ tempe () {
 }
 
 alias e='exit'
+alias c='claude'
+alias cs='claude --dangerously-skip-permissions'
 
 # git
 alias lg='lazygit'

@@ -1,6 +1,5 @@
 {
-  "model": "haiku",
- "hooks": {
+  "hooks": {
     "Notification": [
       {
         "matcher": "",
