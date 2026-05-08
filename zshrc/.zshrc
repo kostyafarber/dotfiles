@@ -188,6 +188,10 @@ alias lqoff='cmake --preset default -DENABLE_QT=OFF'
 
 # fzf key bindings and completion
 source <(fzf --zsh)
+
+# Ctrl-O: fzf-pick a project from ~/repos and open it (via tms)
+bindkey -M viins -s '^O' '^Utms^M'
+bindkey -M vicmd -s '^O' '^Utms^M'
 eval "$(oh-my-posh init zsh --config $(brew --prefix oh-my-posh)/themes/agnoster.omp.json)"
 
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"

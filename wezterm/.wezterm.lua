@@ -36,4 +36,13 @@ wezterm.on("gui-startup", function(cmd)
     window:gui_window():maximize()
 end)
 
+config.keys = {
+    { key = "LeftArrow",  mods = "CMD",       action = wezterm.action.SendKey({ key = "Home" }) },
+    { key = "RightArrow", mods = "CMD",       action = wezterm.action.SendKey({ key = "End" }) },
+    { key = "LeftArrow",  mods = "SHIFT|CMD", action = wezterm.action.SendString("\x1b[1;2H") },
+    { key = "RightArrow", mods = "SHIFT|CMD", action = wezterm.action.SendString("\x1b[1;2F") },
+    { key = "Backspace",  mods = "CMD",       action = wezterm.action.SendKey({ key = "u", mods = "CTRL" }) },
+    { key = "Backspace",  mods = "ALT",       action = wezterm.action.SendKey({ key = "w", mods = "CTRL" }) },
+}
+
 return config

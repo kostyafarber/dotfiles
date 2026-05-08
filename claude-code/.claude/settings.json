@@ -23,5 +23,9 @@
       }
     ]
   },
-  "alwaysThinkingEnabled": true
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "high",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "light",
+  "editorMode": "vim"
 }

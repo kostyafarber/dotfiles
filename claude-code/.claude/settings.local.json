@@ -12,7 +12,13 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(bash -n:*)"
+      "Bash(bash -n:*)",
+      "Bash(grep -n \"createComputedCache\\\\|'indicatorPath'\" packages/store/src/lib/*.ts)",
+      "Bash(yarn typecheck:*)",
+      "Bash(echo \"EXIT: $?\")",
+      "Read(//private/tmp/**)",
+      "Bash(curl -sf \"http://localhost:5420/examples/use-cases/skew-tool/skew-tool.css\" -o /tmp/sk.css -w \"HTTP %{http_code}\\\\n\")",
+      "Read(//tmp/**)"
     ],
     "deny": [],
     "ask": []

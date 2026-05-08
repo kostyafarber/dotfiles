@@ -3,7 +3,12 @@ return {
 	event = "VeryLazy",
 	config = function()
 		local conform = require("conform")
-		local js = { "prettierd", "eslint_d" }
+		local function js(bufnr)
+			if conform.get_formatter_info("oxfmt", bufnr).available then
+				return { "oxfmt", "eslint_d" }
+			end
+			return { "prettierd", "eslint_d" }
+		end
 
 		conform.formatters.templ = {
 			inherit = false,
@@ -15,9 +20,7 @@ return {
 			formatters_by_ft = {
 				lua = { "stylua" },
 				templ = { "templ" },
-				-- Conform will run multiple formatters sequentially
-				python = { "isort", "black" },
-				-- Use a sub-list to run only the first available formatter
+				python = { "ruff_organize_imports", "ruff_format" },
 				javascript = js,
 				javascriptreact = js,
 				typescript = js,
@@ -52,6 +55,6 @@ return {
 		end, {
 			desc = "Re-enable autoformat-on-save",
 		})
-		vim.keymap.set("n", "<leader>f", conform.format)
+		vim.keymap.set("n", "<leader>cf", conform.format, { desc = "Format buffer" })
 	end,
 }
