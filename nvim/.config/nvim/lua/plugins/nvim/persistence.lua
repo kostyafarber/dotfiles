@@ -1,6 +1,6 @@
 return {
     "folke/persistence.nvim",
-    event = "BufReadPre",
+    lazy = false,
     opts = {},
     keys = {
         { "<leader>qs", function() require("persistence").load() end,                desc = "Restore session for cwd" },

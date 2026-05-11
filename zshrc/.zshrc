@@ -11,7 +11,12 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
-export FZF_DEFAULT_OPTS="--color=fg+:yellow"
+export FZF_DEFAULT_OPTS=" \
+--color=bg+:#ccd0da,bg:#eff1f5,spinner:#dc8a78,hl:#d20f39 \
+--color=fg:#4c4f69,header:#d20f39,info:#8839ef,pointer:#dc8a78 \
+--color=marker:#dc8a78,fg+:#4c4f69,prompt:#8839ef,hl+:#d20f39 \
+--color=selected-bg:#bcc0cc \
+--color=border:#ccd0da,label:#4c4f69"
 export XDG_CONFIG_HOME="$HOME/.config"
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time oh-my-zsh is loaded, in which case,
@@ -257,3 +262,8 @@ esac
 # pnpm end
 
 export PATH="$HOME/.local/bin:$PATH"
+
+
+# tmux-sessionizer: Ctrl+F in plain shell to fuzzy-pick a project
+bindkey -s "^F" "tmux-sessionizer
+"

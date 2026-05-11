@@ -8,5 +8,6 @@ return {
         { "<leader>xs", "<cmd>Trouble symbols toggle focus=false<cr>",          desc = "Symbols" },
         { "<leader>xL", "<cmd>Trouble loclist toggle<cr>",                      desc = "Location list" },
         { "<leader>xQ", "<cmd>Trouble qflist toggle<cr>",                       desc = "Quickfix list" },
+        { "<leader>xr", "<cmd>Trouble lsp_references toggle focus=true<cr>",    desc = "LSP references" },
     },
 }

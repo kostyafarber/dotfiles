@@ -24,6 +24,7 @@ The script will:
 - **zshrc** - Zsh shell configuration with aliases and functions
 - **vscode** - Visual Studio Code settings and keybindings
 - **wezterm** - WezTerm terminal configuration
+- **ghostty** - Ghostty terminal configuration with Catppuccin Latte theme
 - **fastfetch** - System information display configuration
 - **lazygit** - Git UI configuration
 - **claude-code** - Claude Code CLI settings (model selection, permissions, notification hooks)

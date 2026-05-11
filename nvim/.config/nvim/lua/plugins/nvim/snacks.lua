@@ -12,7 +12,22 @@ return {
         words = { enabled = true },
         dashboard = { enabled = true },
         explorer = { enabled = true, replace_netrw = true },
-        picker = { enabled = true },
+        picker = {
+            enabled = true,
+            win = {
+                input = {
+                    keys = {
+                        ["-"] = { "edit_split", mode = { "n" } },
+                        ["\\"] = { "edit_vsplit", mode = { "n" } },
+                    },
+                },
+            },
+            sources = {
+                explorer = {
+                    layout = { preset = "sidebar", layout = { position = "right" } },
+                },
+            },
+        },
         lazygit = { enabled = true },
         zen = { enabled = true },
         terminal = { enabled = true },
@@ -33,6 +48,8 @@ return {
         { "<leader>fs", function() Snacks.picker.lsp_symbols() end,   desc = "Document symbols" },
         { "<leader>fS", function() Snacks.picker.lsp_workspace_symbols() end, desc = "Workspace symbols" },
         { "<leader>ft", function() Snacks.picker.todo_comments() end, desc = "Todos" },
+        { "<leader>fd", function() Snacks.picker.diagnostics_buffer() end, desc = "Diagnostics (buffer)" },
+        { "<leader>fD", function() Snacks.picker.diagnostics() end,        desc = "Diagnostics (workspace)" },
 
         { "<leader>gg", function() Snacks.lazygit() end,                desc = "Lazygit" },
         { "<leader>gB", function() Snacks.gitbrowse() end,              desc = "Git browse (open in browser)" },
@@ -44,6 +61,12 @@ return {
         { "<leader>nh", function() Snacks.notifier.show_history() end,  desc = "Notification history" },
         { "<leader>e",  function() Snacks.explorer() end,               desc = "Explorer" },
         { "<leader>`",  function() Snacks.terminal() end,               desc = "Toggle terminal" },
-        { "<leader>bd", function() Snacks.bufdelete() end,              desc = "Delete buffer" },
+        { "<leader>bd", function()
+            local bufnr = vim.api.nvim_get_current_buf()
+            if #vim.api.nvim_tabpage_list_wins(0) > 1 then
+                vim.cmd("close")
+            end
+            Snacks.bufdelete(bufnr)
+        end, desc = "Delete buffer + close split" },
     },
 }

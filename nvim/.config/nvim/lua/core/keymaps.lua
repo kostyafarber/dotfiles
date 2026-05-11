@@ -5,6 +5,9 @@ local k = vim.keymap.set
 k("n", "<C-d>", "<C-d>zz")
 k("n", "<C-u>", "<C-u>zz")
 
+k("n", "<leader>w", "<cmd>update<cr>", { desc = "Save" })
+k("n", "<leader>qq", "<cmd>xa<cr>", { desc = "Save all and quit" })
+
 k("n", "<leader>-", "<cmd>split<cr>",  { desc = "Split horizontal" })
 k("n", "<leader>|", "<cmd>vsplit<cr>", { desc = "Split vertical" })
 

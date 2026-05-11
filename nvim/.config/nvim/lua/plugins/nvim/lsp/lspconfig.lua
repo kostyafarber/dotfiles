@@ -27,9 +27,21 @@ return {
             filetypes = { "html", "typescriptreact", "javascriptreact", "css", "sass", "scss", "less", "svelte" },
         })
 
+        vim.lsp.config("rust_analyzer", {
+            settings = {
+                ["rust-analyzer"] = {
+                    checkOnSave = true,
+                    check = { command = "clippy", allTargets = true, extraArgs = { "--workspace" } },
+                    cargo = { allTargets = true, allFeatures = true },
+                    procMacro = { enable = true },
+                },
+            },
+        })
+
         vim.lsp.enable({
             "ts_ls", "lua_ls", "html", "cssls", "tailwindcss",
             "svelte", "graphql", "emmet_ls", "prismals", "pyright", "ruff",
+            "rust_analyzer",
         })
 
         vim.lsp.config("pyright", {
@@ -46,7 +58,7 @@ return {
         })
 
         vim.diagnostic.config({
-            virtual_text = true,
+            virtual_text = false,
             signs = {
                 text = {
                     [vim.diagnostic.severity.ERROR] = " ",
