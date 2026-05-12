@@ -26,10 +26,12 @@ return {
                 explorer = {
                     layout = { preset = "sidebar", layout = { position = "right" } },
                 },
+                lines = {
+                    layout = { preset = "default" },
+                },
             },
         },
         lazygit = { enabled = true },
-        zen = { enabled = true },
         terminal = { enabled = true },
         bufdelete = { enabled = true },
         gitbrowse = { enabled = true },
@@ -38,6 +40,7 @@ return {
     keys = {
         { "<leader>ff", function() Snacks.picker.files() end,         desc = "Find files" },
         { "<leader>fg", function() Snacks.picker.grep() end,          desc = "Live grep" },
+        { "<leader>fl", function() Snacks.picker.lines() end,         desc = "Lines (current buffer)" },
         { "<leader>fw", function() Snacks.picker.grep_word() end,     desc = "Grep word / selection", mode = { "n", "x" } },
         { "<leader>fb", function() Snacks.picker.buffers() end,       desc = "Buffers" },
         { "<leader>fr", function() Snacks.picker.recent() end,        desc = "Recent files" },
@@ -57,7 +60,6 @@ return {
         { "<leader>gl", function() Snacks.picker.git_log() end,         desc = "Git log" },
         { "<leader>gs", function() Snacks.picker.git_status() end,      desc = "Git status" },
 
-        { "<leader>z",  function() Snacks.zen() end,                    desc = "Zen mode" },
         { "<leader>nh", function() Snacks.notifier.show_history() end,  desc = "Notification history" },
         { "<leader>e",  function() Snacks.explorer() end,               desc = "Explorer" },
         { "<leader>`",  function() Snacks.terminal() end,               desc = "Toggle terminal" },

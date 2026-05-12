@@ -2,7 +2,7 @@ if [ -f $HOME/.secrets ]; then
   source $HOME/.secrets
 fi
 
-export PATH=$HOME/bin:/usr/local/bin:$PATH
+export PATH=$HOME/.bin:$HOME/bin:/usr/local/bin:$PATH
 export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
 
 zmodload zsh/zprof
