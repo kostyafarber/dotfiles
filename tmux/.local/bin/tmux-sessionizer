@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# Fuzzy-pick a project under one or more configured roots and attach (or create)
+# its tmux session. Cancel (Esc / Ctrl+C) → fall through to a plain shell.
+#
+# Configure search roots via TMUX_SESSIONIZER_PATHS (newline- or colon-separated).
+# Defaults to "$HOME/repos".
+#
+# Examples:
+#   export TMUX_SESSIONIZER_PATHS="$HOME/repos:$HOME/work"
+#   export TMUX_SESSIONIZER_PATHS="$HOME/repos
+#   $HOME/work
+#   $HOME/personal"
+
+set -uo pipefail
+
+if [[ $# -eq 1 ]]; then
+    selected=$1
+else
+    # Build the list of search roots. Allow newline OR colon as separators.
+    raw=${TMUX_SESSIONIZER_PATHS:-$HOME/repos}
+    paths=()
+    while IFS= read -r line; do
+        [[ -z $line ]] && continue
+        # shellcheck disable=SC2206
+        IFS=':' parts=($line)
+        for p in "${parts[@]}"; do
+            [[ -d $p ]] && paths+=("$p")
+        done
+    done <<< "$raw"
+
+    if [[ ${#paths[@]} -eq 0 ]]; then
+        echo "tmux-sessionizer: no valid paths in TMUX_SESSIONIZER_PATHS" >&2
+        exit 1
+    fi
+
+    selected=$(fd --type d --max-depth 1 . "${paths[@]}" 2>/dev/null \
+        | fzf --reverse --prompt="project> " --height=60% --border)
+fi
+
+if [[ -z $selected ]]; then
+    # Cancelled. If we're not inside tmux, drop into a plain shell so the
+    # Ghostty window doesn't just close.
+    if [[ -z ${TMUX:-} ]]; then
+        exec "${SHELL:-/bin/zsh}" -l
+    fi
+    exit 0
+fi
+
+session_name=$(basename "$selected" | tr . _)
+tmux_running=$(pgrep -x tmux || true)
+
+if [[ -z ${TMUX:-} ]] && [[ -z $tmux_running ]]; then
+    exec tmux new-session -s "$session_name" -c "$selected"
+fi
+
+if ! tmux has-session -t="$session_name" 2>/dev/null; then
+    tmux new-session -ds "$session_name" -c "$selected"
+fi
+
+if [[ -z ${TMUX:-} ]]; then
+    exec tmux attach-session -t "$session_name"
+else
+    tmux switch-client -t "$session_name"
+fi
