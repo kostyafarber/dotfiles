@@ -28,8 +28,11 @@ return {
                 GitSignsChange     = { fg = "#ca8a04" },
                 GitSignsDelete     = { fg = "#dc2626" },
 
+                DiffviewDiffAdd         = { bg = "#dcfce7" },
+                DiffviewDiffChange      = { bg = "#fef9c3" },
+                DiffviewDiffDelete      = { bg = "#fecaca", fg = "#991b1b" },
+                DiffviewDiffText        = { bg = "#86efac", bold = true },
                 DiffviewDiffAddAsDelete = { bg = "#fecaca" },
-                DiffviewDiffDelete      = { fg = C.surface1 },
             }
         end,
     },

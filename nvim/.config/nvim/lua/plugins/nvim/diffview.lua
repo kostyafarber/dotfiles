@@ -23,7 +23,7 @@ return {
     cmd = { "DiffviewOpen", "DiffviewClose", "DiffviewFileHistory", "DiffviewToggleFiles", "DiffviewFocusFiles" },
     opts = function()
         return {
-            enhanced_diff_hl = true,
+            enhanced_diff_hl = false,
             show_help_hints = false,
             view = {
                 default = {

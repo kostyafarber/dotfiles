@@ -34,7 +34,7 @@ else
         exit 1
     fi
 
-    selected=$(fd --type d --max-depth 1 . "${paths[@]}" 2>/dev/null \
+    selected=$(fd -L --type d --max-depth 1 . "${paths[@]}" 2>/dev/null \
         | fzf --reverse --prompt="project> " --height=60% --border)
 fi
 
