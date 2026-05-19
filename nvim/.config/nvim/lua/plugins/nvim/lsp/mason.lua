@@ -1,5 +1,6 @@
 return {
     "williamboman/mason.nvim",
+    version = "^1.0.0",
     dependencies = { "WhoIsSethDaniel/mason-tool-installer.nvim" },
     event = "VeryLazy",
     build = ":MasonUpdate",

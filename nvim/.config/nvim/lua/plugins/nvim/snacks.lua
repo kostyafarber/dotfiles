@@ -112,7 +112,7 @@ return {
                 { section = "keys", gap = 1, padding = 1 },
             },
         },
-        explorer = { enabled = true, replace_netrw = true },
+        explorer = { enabled = true, replace_netrw = false },
         picker = {
             enabled = true,
             win = {
