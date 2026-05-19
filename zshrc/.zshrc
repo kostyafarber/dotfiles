@@ -147,6 +147,7 @@ tempe () {
 alias e='exit'
 alias c='claude'
 alias cs='claude --dangerously-skip-permissions'
+alias csf='claude --dangerously-skip-permissions --model haiku'
 
 # git
 alias lg='lazygit'
@@ -168,6 +169,34 @@ alias gb="git stash && git pull && git stash pop"
 alias gs='git stash'
 alias gtp='git stash pop'
 alias gsu="git pull upstream master && git push origin"
+
+dot-sync() {
+  local dir="$HOME/.dotfiles"
+  if [ ! -d "$dir/.git" ]; then
+    echo "dot-sync: $dir is not a git repo" >&2
+    return 1
+  fi
+  local dirty=0
+  if ! git -C "$dir" diff --quiet || ! git -C "$dir" diff --cached --quiet; then
+    dirty=1
+    echo "dot-sync: stashing local changes..."
+    git -C "$dir" stash push -u -m "dot-sync auto-stash" || return 1
+  fi
+  echo "dot-sync: pulling..."
+  if ! git -C "$dir" pull --rebase --autostash; then
+    echo "dot-sync: pull failed" >&2
+    [ "$dirty" -eq 1 ] && echo "dot-sync: your stash is still saved (git -C $dir stash list)"
+    return 1
+  fi
+  if [ "$dirty" -eq 1 ]; then
+    echo "dot-sync: popping stash..."
+    git -C "$dir" stash pop || {
+      echo "dot-sync: stash pop had conflicts — resolve in $dir" >&2
+      return 1
+    }
+  fi
+  echo "dot-sync: done"
+}
 
 gco() {
     local branch=$(git branch -a --format='%(refname:short)' --sort=-committerdate | \

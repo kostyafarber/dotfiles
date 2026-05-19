@@ -28,13 +28,7 @@ k("i", "<M-BS>",    "<C-w>",     { desc = "Delete word back" })
 k({ "i", "n", "v" }, "<S-Right>", "<S-Right>")
 k({ "i", "n", "v" }, "<S-Left>",  "<S-Left>")
 
-local function open_explorer()
-    if package.loaded["snacks"] then Snacks.explorer() end
-end
-vim.api.nvim_create_autocmd("VimEnter", {
-    callback = function()
-        if vim.fn.argc() > 0 then
-            vim.schedule(open_explorer)
-        end
-    end,
-})
+k("n", "<leader>of", function()
+  vim.fn.jobstart({ "open", "-R", vim.fn.expand("%:p") })
+end, { desc = "Reveal file in Finder" })
+

@@ -125,10 +125,16 @@ return {
             },
             sources = {
                 explorer = {
-                    layout = { preset = "sidebar", layout = { position = "right" } },
+                    layout = { preset = "sidebar", layout = { position = "right", width = 80 } },
                 },
                 lines = {
                     layout = { preset = "default" },
+                },
+                files = {
+                    hidden = true,
+                },
+                grep = {
+                    hidden = true,
                 },
             },
         },
