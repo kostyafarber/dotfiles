@@ -19,20 +19,21 @@ return {
         },
         custom_highlights = function(C)
             return {
-                DiffAdd     = { bg = "#dcfce7" },
-                DiffChange  = { bg = "#fef9c3" },
-                DiffDelete  = { bg = "#fecaca", fg = "#991b1b" },
-                DiffText    = { bg = "#86efac", bold = true },
+                DiffAdd     = { bg = "#dafbe1" },
+                DiffChange  = { bg = "#dafbe1" },
+                DiffDelete  = { bg = "#ffebe9", fg = "#82071e" },
+                DiffText    = { bg = "#aceebb", bold = true },
 
-                GitSignsAdd        = { fg = "#16a34a" },
-                GitSignsChange     = { fg = "#ca8a04" },
-                GitSignsDelete     = { fg = "#dc2626" },
+                GitSignsAdd        = { fg = "#1a7f37" },
+                GitSignsChange     = { fg = "#9a6700" },
+                GitSignsDelete     = { fg = "#cf222e" },
 
-                DiffviewDiffAdd         = { bg = "#dcfce7" },
-                DiffviewDiffChange      = { bg = "#fef9c3" },
-                DiffviewDiffDelete      = { bg = "#fecaca", fg = "#991b1b" },
-                DiffviewDiffText        = { bg = "#86efac", bold = true },
-                DiffviewDiffAddAsDelete = { bg = "#fecaca" },
+                DiffviewDiffAdd         = { bg = "#dafbe1" },
+                DiffviewDiffChange      = { bg = "#dafbe1" },
+                DiffviewDiffDelete      = { bg = "#ffebe9", fg = "#82071e" },
+                DiffviewDiffText        = { bg = "#aceebb", bold = true },
+                DiffviewDiffAddAsDelete = { bg = "#ffebe9" },
+                DiffviewDiffDeleteText  = { bg = "#ffaba8", bold = true },
             }
         end,
     },

@@ -84,6 +84,7 @@ return {
         { "<leader>gh", "<cmd>DiffviewFileHistory<cr>", desc = "Diffview: repo history" },
         { "<leader>gH", "<cmd>DiffviewFileHistory %<cr>", desc = "Diffview: this file's history" },
         { "<leader>gS", "<cmd>DiffviewOpen --cached<cr>", desc = "Diffview: staged only" },
+        { "<leader>gm", "<cmd>DiffviewOpen origin/main...HEAD<cr>", desc = "Diffview: branch vs origin/main (PR view)" },
         { "<leader>ge", "<cmd>DiffviewFocusFiles<cr>", desc = "Diffview: focus files" },
         { "<leader>g/", search_diff_text, desc = "Git: search diff text" },
     },

@@ -38,3 +38,16 @@ k("n", "<leader>cp", function()
   vim.notify("Copied: " .. path)
 end, { desc = "Copy file path" })
 
+k("n", "<leader>oo", function()
+  local path = vim.fn.expand("%:p")
+  local stripped = path:match("^%w+://(.*)$")
+  if stripped then
+    path = "/" .. stripped:gsub("^/+", "")
+  end
+  if path == "" or vim.fn.filereadable(path) == 0 and vim.fn.isdirectory(path) == 0 then
+    path = vim.fn.getcwd()
+  end
+  local encoded = vim.uri_encode(path, "rfc2396")
+  vim.fn.jobstart({ "open", "obsidian://open?path=" .. encoded })
+end, { desc = "Open in Obsidian" })
+
