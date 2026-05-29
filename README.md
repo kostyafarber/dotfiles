@@ -28,6 +28,8 @@ The script will:
 - **fastfetch** - System information display configuration
 - **lazygit** - Git UI configuration
 - **claude-code** - Claude Code CLI settings (model selection, permissions, notification hooks)
+- **codex** - Codex CLI skill bridge for shared agent skills
+- **agents** - Shared agent skills used by Claude and Codex
 - **mac** - macOS-specific configurations (Brewfile, system preferences, keybindings)
 
 ## Claude Code Settings

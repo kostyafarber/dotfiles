@@ -32,3 +32,9 @@ k("n", "<leader>of", function()
   vim.fn.jobstart({ "open", "-R", vim.fn.expand("%:p") })
 end, { desc = "Reveal file in Finder" })
 
+k("n", "<leader>cp", function()
+  local path = vim.fn.expand("%:p")
+  vim.fn.setreg("+", path)
+  vim.notify("Copied: " .. path)
+end, { desc = "Copy file path" })
+
