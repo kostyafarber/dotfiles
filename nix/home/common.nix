@@ -204,6 +204,11 @@ in
     autosuggestion.enable = true;
     defaultKeymap = "viins"; # set -o vi
 
+    # ~/.local/bin (tmux-sessionizer, etc.) on PATH for every shell incl. tmux panes
+    envExtra = ''
+      case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+    '';
+
     shellAliases = {
       e = "exit";
       c = "claude";
@@ -270,34 +275,6 @@ in
           branch="''${branch#origin/}"
           git checkout "$branch"
         fi
-      }
-
-      dot-sync() {
-        local dir="$HOME/.dotfiles"
-        if [ ! -d "$dir/.git" ]; then
-          echo "dot-sync: $dir is not a git repo" >&2
-          return 1
-        fi
-        local dirty=0
-        if ! git -C "$dir" diff --quiet || ! git -C "$dir" diff --cached --quiet; then
-          dirty=1
-          echo "dot-sync: stashing local changes..."
-          git -C "$dir" stash push -u -m "dot-sync auto-stash" || return 1
-        fi
-        echo "dot-sync: pulling..."
-        if ! git -C "$dir" pull --rebase --autostash; then
-          echo "dot-sync: pull failed" >&2
-          [ "$dirty" -eq 1 ] && echo "dot-sync: your stash is still saved (git -C $dir stash list)"
-          return 1
-        fi
-        if [ "$dirty" -eq 1 ]; then
-          echo "dot-sync: popping stash..."
-          git -C "$dir" stash pop || {
-            echo "dot-sync: stash pop had conflicts — resolve in $dir" >&2
-            return 1
-          }
-        fi
-        echo "dot-sync: done"
       }
 
       # update: pull the latest dotfiles and apply them. Host is auto-picked from
