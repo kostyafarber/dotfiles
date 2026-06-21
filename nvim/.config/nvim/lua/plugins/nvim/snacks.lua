@@ -10,6 +10,33 @@ end
 set_pi_hl()
 vim.api.nvim_create_autocmd("ColorScheme", { callback = set_pi_hl })
 
+-- `nvim <dir>` (e.g. `nvim .`) → show the dashboard instead of netrw.
+-- The snacks dashboard only auto-opens with no args; with a directory arg it
+-- bails ("argc(-1) > 0") unless the snacks explorer is enabled — but that brings
+-- a sidebar we don't want. So we open the dashboard ourselves: cd into the
+-- directory (scopes the pickers to it) and swap the directory buffer for the
+-- dashboard in the same window. netrw is disabled in set.lua, so nothing else
+-- claims the directory buffer first.
+vim.api.nvim_create_autocmd("VimEnter", {
+    group = vim.api.nvim_create_augroup("pi_dir_dashboard", { clear = true }),
+    callback = function()
+        if vim.fn.argc(-1) ~= 1 then return end
+
+        local arg = vim.fn.argv(0)
+        if arg == "" or vim.fn.isdirectory(arg) == 0 then return end
+
+        vim.cmd.cd(arg)
+
+        local win = vim.api.nvim_get_current_win()
+        local dir_buf = vim.api.nvim_get_current_buf()
+        Snacks.dashboard.open({ win = win })
+
+        if vim.api.nvim_buf_is_valid(dir_buf) and dir_buf ~= vim.api.nvim_get_current_buf() then
+            vim.api.nvim_buf_delete(dir_buf, { force = true })
+        end
+    end,
+})
+
 local function pi_divider()
     local dash = string.rep("─", 25)
     return {
@@ -112,7 +139,7 @@ return {
                 { section = "keys", gap = 1, padding = 1 },
             },
         },
-        explorer = { enabled = true, replace_netrw = false },
+        explorer = { enabled = false },
         picker = {
             enabled = true,
             win = {

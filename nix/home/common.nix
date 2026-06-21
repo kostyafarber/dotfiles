@@ -216,6 +216,8 @@ in
       c = "claude";
       cs = "claude --dangerously-skip-permissions";
       csf = "claude --dangerously-skip-permissions --model haiku";
+      # codex in full-auto: no approval prompts, no sandbox (mainly for the box)
+      cxs = "codex --dangerously-bypass-approvals-and-sandbox";
 
       nrd = "npm run dev";
       drc = "nvim $HOME/.dotfiles";

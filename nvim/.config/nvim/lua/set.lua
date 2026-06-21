@@ -1,3 +1,10 @@
+-- Disable netrw entirely. Must run before the netrw plugin is sourced (set.lua
+-- is required at the very top of init.lua, before lazy/plugins load). Directory
+-- buffers are handled by the dashboard at startup (see snacks.lua) and by oil
+-- mid-session (`-` / `<leader>o`).
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 vim.opt.nu = true
 vim.opt.relativenumber = true
 vim.wo.relativenumber = true

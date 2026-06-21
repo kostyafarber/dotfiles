@@ -1,7 +1,9 @@
 return {
     'numToStr/Comment.nvim',
-    opts = {
-        -- add any options here
-    }
+    opts = {},
+    init = function()
+        require("Comment.ft").set("typescriptreact", "//%s")
+        require("Comment.ft").set("javascriptreact", "//%s")
+    end,
 }
 
