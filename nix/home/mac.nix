@@ -8,7 +8,7 @@ in
   home.username = "kostyafarber";
   home.homeDirectory = "/Users/kostyafarber";
 
-  # which flake output `hms`/`update` apply on this host (.zshenv → every shell)
+  # .zshenv → every shell: which flake output `update` applies on this host
   programs.zsh.envExtra = ''export DOTFILES_HM_TARGET="kostyafarber@mac"'';
 
   # GUI app configs (mac-only), kept editable in-repo via out-of-store symlinks
