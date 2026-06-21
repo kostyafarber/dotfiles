@@ -204,9 +204,11 @@ in
     autosuggestion.enable = true;
     defaultKeymap = "viins"; # set -o vi
 
-    # ~/.local/bin (tmux-sessionizer, etc.) on PATH for every shell incl. tmux panes
+    # PATH bits the old rc files set up, restored for every shell (incl. tmux
+    # panes): ~/.local/bin (tmux-sessionizer) + the rustup toolchain if present.
     envExtra = ''
       case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+      [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
     '';
 
     shellAliases = {
