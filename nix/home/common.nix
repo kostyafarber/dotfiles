@@ -204,9 +204,11 @@ in
     autosuggestion.enable = true;
     defaultKeymap = "viins"; # set -o vi
 
-    # PATH bits the old rc files set up, restored for every shell (incl. tmux
-    # panes): ~/.local/bin (tmux-sessionizer) + the rustup toolchain if present.
+    # PATH for EVERY shell, including non-login ssh commands — clawf/clawdex run
+    # `ssh box "tmux ..."`, which only sources .zshenv. Put the nix profile
+    # (tmux, node, ...) + ~/.local/bin (tmux-sessionizer) + rustup on PATH there.
     envExtra = ''
+      case ":$PATH:" in *":$HOME/.nix-profile/bin:"*) ;; *) export PATH="$HOME/.nix-profile/bin:$PATH" ;; esac
       case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
       [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
     '';
