@@ -206,8 +206,6 @@ in
 
     shellAliases = {
       e = "exit";
-      # home-manager switch for this host (target set per-host via env var)
-      hms = "home-manager switch --flake ~/.dotfiles#$DOTFILES_HM_TARGET";
       c = "claude";
       cs = "claude --dangerously-skip-permissions";
       csf = "claude --dangerously-skip-permissions --model haiku";
@@ -310,18 +308,6 @@ in
         [ -z "$target" ] && { echo "update: \$DOTFILES_HM_TARGET is unset" >&2; return 1; }
         git -C "$dir" pull --rebase --autostash || return 1
         home-manager switch --flake "$dir#$target"
-      }
-
-      # dotpush: commit everything in the dotfiles repo and push it.
-      dotpush() {
-        local dir="$HOME/.dotfiles"
-        git -C "$dir" add -A
-        if git -C "$dir" diff --cached --quiet; then
-          echo "dotfiles: nothing to commit"
-        else
-          git -C "$dir" commit -m "''${1:-dotfiles: update from $(hostname -s) $(date +%F)}" \
-            && git -C "$dir" push
-        fi
       }
 
       # _dotfiles_status: silent unless ~/.dotfiles has drifted. A throttled
