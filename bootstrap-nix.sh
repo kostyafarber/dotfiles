@@ -39,9 +39,4 @@ cat <<EOF
 Done. (Optional) make zsh your login shell:
   echo "\$HOME/.nix-profile/bin/zsh" | sudo tee -a /etc/shells
   chsh -s "\$HOME/.nix-profile/bin/zsh"
-
-If 'switch' complained a file "would be clobbered" (a pre-existing symlink that
--b backup won't move), move it aside and re-run:
-  mv <path> <path>.prenix
-  nix run $HM_REF -- switch -b backup --flake $DOTDIR#$TARGET
 EOF
