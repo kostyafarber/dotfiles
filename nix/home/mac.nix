@@ -8,6 +8,9 @@ in
   home.username = "kostyafarber";
   home.homeDirectory = "/Users/kostyafarber";
 
+  # which flake output `hms`/`update` apply on this host (.zshenv → every shell)
+  programs.zsh.envExtra = ''export DOTFILES_HM_TARGET="kostyafarber@mac"'';
+
   # GUI app configs (mac-only), kept editable in-repo via out-of-store symlinks
   xdg.configFile."ghostty/config".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty/.config/ghostty/config";
@@ -21,8 +24,6 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/vscode/Library/Application Support/Code/User/keybindings.json";
 
   programs.zsh.shellAliases = {
-    hms = "home-manager switch --flake ~/.dotfiles#kostyafarber@mac";
-
     # ladybird dev (mac, brew-provided llvm)
     lc = "./Meta/ladybird.sh delete";
     lr = "CC=$(brew --prefix llvm)/bin/clang CXX=$(brew --prefix llvm)/bin/clang++ ./Meta/ladybird.sh run ladybird";

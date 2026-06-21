@@ -5,8 +5,6 @@
   home.username = "firmclaw";
   home.homeDirectory = "/home/firmclaw";
 
-  programs.zsh.shellAliases = {
-    # one-shot apply of this flake on the box
-    hms = "home-manager switch --flake ~/.dotfiles#firmclaw@box";
-  };
+  # which flake output `hms`/`update` apply on this host (.zshenv → every shell)
+  programs.zsh.envExtra = ''export DOTFILES_HM_TARGET="firmclaw@box"'';
 }

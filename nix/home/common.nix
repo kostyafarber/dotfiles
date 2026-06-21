@@ -206,6 +206,8 @@ in
 
     shellAliases = {
       e = "exit";
+      # home-manager switch for this host (target set per-host via env var)
+      hms = "home-manager switch --flake ~/.dotfiles#$DOTFILES_HM_TARGET";
       c = "claude";
       cs = "claude --dangerously-skip-permissions";
       csf = "claude --dangerously-skip-permissions --model haiku";
@@ -300,10 +302,53 @@ in
         echo "dot-sync: done"
       }
 
+      # update: pull the latest dotfiles and apply them. Host is auto-picked from
+      # $DOTFILES_HM_TARGET (set per-host in box.nix / mac.nix), so the same
+      # command works on every machine.
+      update() {
+        local dir="$HOME/.dotfiles" target="$DOTFILES_HM_TARGET"
+        [ -z "$target" ] && { echo "update: \$DOTFILES_HM_TARGET is unset" >&2; return 1; }
+        git -C "$dir" pull --rebase --autostash || return 1
+        home-manager switch --flake "$dir#$target"
+      }
+
+      # dotpush: commit everything in the dotfiles repo and push it.
+      dotpush() {
+        local dir="$HOME/.dotfiles"
+        git -C "$dir" add -A
+        if git -C "$dir" diff --cached --quiet; then
+          echo "dotfiles: nothing to commit"
+        else
+          git -C "$dir" commit -m "''${1:-dotfiles: update from $(hostname -s) $(date +%F)}" \
+            && git -C "$dir" push
+        fi
+      }
+
+      # _dotfiles_status: silent unless ~/.dotfiles has drifted. A throttled
+      # (<=hourly) background fetch keeps the "behind" count fresh without blocking.
+      _dotfiles_status() {
+        local dir="$HOME/.dotfiles"
+        [ -d "$dir/.git" ] || return
+        if [ -z "$(find "$dir/.git/FETCH_HEAD" -mmin -60 2>/dev/null)" ]; then
+          ( git -C "$dir" fetch -q --no-tags >/dev/null 2>&1 & )
+        fi
+        local dirty ahead behind msg=""
+        dirty=$(git -C "$dir" status --porcelain 2>/dev/null | grep -c .)
+        ahead=$(git -C "$dir" rev-list --count @{upstream}..HEAD 2>/dev/null)
+        behind=$(git -C "$dir" rev-list --count HEAD..@{upstream} 2>/dev/null)
+        (( dirty          > 0 )) && msg+="✎$dirty uncommitted  "
+        (( ''${ahead:-0}  > 0 )) && msg+="↑$ahead unpushed  "
+        (( ''${behind:-0} > 0 )) && msg+="↓$behind behind → run 'update'  "
+        [ -n "$msg" ] && print -P "%F{yellow}❄ dotfiles:%f $msg"
+      }
+
       # login greeting: a random pokemon piped in as the fastfetch logo
       if command -v fastfetch >/dev/null && command -v pokemon-colorscripts >/dev/null; then
         pokemon-colorscripts -r --no-title | fastfetch
       fi
+
+      # nudge if the dotfiles repo has drifted (silent when in sync)
+      _dotfiles_status
     '';
   };
 }
