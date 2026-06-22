@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, inputs, ... }:
 
 let
   # Live path to the dotfiles checkout. Used for configs we want to stay
@@ -94,6 +94,38 @@ in
   programs.lazygit.enable = true;
   xdg.configFile."lazygit/config.yml".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/lazygit/.config/lazygit/config.yml";
+
+  # ---------------------------------------------------------------------------
+  # hunk — terminal diff viewer for reviewing changes, especially agent-authored
+  # ones (`hunk diff` for the working tree, `hunk show` for the last commit,
+  # `hunk diff --watch` to live-reload while an agent keeps editing). On both
+  # hosts: the box (where codex runs) and the mac.
+  # ---------------------------------------------------------------------------
+  imports = [ inputs.hunk.homeManagerModules.default ];
+
+  programs.hunk = {
+    enable = true;
+
+    # The module defaults `package` to `pkgs.hunk` (an overlay we don't add), so
+    # point it at the flake's output for whichever host we're on — resolves to
+    # aarch64-darwin on the mac, x86_64-linux on the box.
+    package = inputs.hunk.packages.${pkgs.stdenv.hostPlatform.system}.hunk;
+
+    # Leave git's pager alone — you drive git through lazygit + explicit
+    # `hunk diff`. Flip to true if you'd rather `git diff`/`show`/`log` page
+    # through hunk automatically.
+    enableGitIntegration = false;
+
+    # Serialized to hunk's TOML config (keys: github.com/modem-dev/hunk#config).
+    # Carried over from your hand-written ~/.config/hunk/config.toml so nix
+    # reproduces it; catppuccin-latte matches your fzf palette in this file.
+    settings = {
+      theme = "catppuccin-latte";
+      mode = "auto";          # split | stack | auto (responsive)
+      line_numbers = true;
+      watch = false;
+    };
+  };
 
   # ---------------------------------------------------------------------------
   # neovim — install the binary; keep your existing lazy.nvim config editable
