@@ -18,3 +18,6 @@
 
 # OS
 Thumbs.db
+
+# home-manager build artifact
+result

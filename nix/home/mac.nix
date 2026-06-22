@@ -11,6 +11,12 @@ in
   # .zshenv → every shell: which flake output `update` applies on this host
   programs.zsh.envExtra = ''export DOTFILES_HM_TARGET="kostyafarber@mac"'';
 
+  # nix's git wins on PATH over brew git and ignores Apple's /etc/gitconfig, so
+  # it loses the osxkeychain helper the system git had. Re-declare it (mac-only;
+  # the helper binary ships with nixpkgs git) so HTTPS pushes keep using the
+  # keychain instead of prompting.
+  programs.git.settings.credential.helper = "osxkeychain";
+
   # GUI app configs (mac-only), kept editable in-repo via out-of-store symlinks
   xdg.configFile."ghostty/config".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty/.config/ghostty/config";
