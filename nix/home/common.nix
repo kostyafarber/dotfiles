@@ -48,7 +48,15 @@ in
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
+
+    # nix's nodejs has a read-only global prefix (the store), so `npm i -g`
+    # can't write there. Point npm's global prefix at a writable dir in $HOME
+    # so fast-moving CLIs (codex) install + self-update outside nix.
+    NPM_CONFIG_PREFIX = "${config.home.homeDirectory}/.npm-global";
   };
+
+  # put the npm-global bin dir on PATH (where `npm i -g` drops shims, e.g. codex)
+  home.sessionPath = [ "${config.home.homeDirectory}/.npm-global/bin" ];
 
   # ---------------------------------------------------------------------------
   # git
