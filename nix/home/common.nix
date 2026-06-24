@@ -65,6 +65,19 @@ in
     enable = true;
     settings.user.name = "Kostya Farber";
     settings.user.email = "kostya.farber@gmail.com";
+
+    # delta as the pager for `git diff`/`show`/`log -p` (lazygit already used it
+    # via its own [delta "lazygit"] feature; this wires it into the CLI too).
+    # Matches your light/GitHub aesthetic; `navigate` = n/N to jump between files.
+    delta = {
+      enable = true;
+      options = {
+        navigate = true;
+        light = true;
+        line-numbers = true;
+        syntax-theme = "GitHub";
+      };
+    };
   };
 
   # ---------------------------------------------------------------------------
@@ -234,6 +247,10 @@ in
   home.file.".local/bin/tmux-sessionizer".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/tmux/.local/bin/tmux-sessionizer";
 
+  # dark/light theme switcher for nvim + ghostty (`theme dark|light|toggle`)
+  home.file.".local/bin/theme".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/theme";
+
   # ---------------------------------------------------------------------------
   # zsh — lean: oh-my-zsh dropped (prompt = oh-my-posh, `z` = zoxide,
   # autosuggestion native, completion handled by home-manager). Conda / nvm /
@@ -262,6 +279,7 @@ in
       cxs = "codex --dangerously-bypass-approvals-and-sandbox";
 
       nrd = "npm run dev";
+      tt = "theme toggle";
       drc = "nvim $HOME/.dotfiles";
       vrc = "nvim $HOME/.zshrc";
       crc = "nvim $HOME/.claude";

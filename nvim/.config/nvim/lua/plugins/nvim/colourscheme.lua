@@ -18,6 +18,13 @@ return {
             native_lsp = { enabled = true, inlay_hints = { background = true } },
         },
         custom_highlights = function(C)
+            -- latte base is light (#eff1f5), mocha base is dark (#1e1e2e). Only
+            -- override diffs on the light flavour — these are GitHub-light colours
+            -- and would look wrong on mocha, where catppuccin's own diff/git
+            -- palette is already tuned for dark.
+            if tonumber(C.base:sub(2, 3), 16) < 128 then
+                return {}
+            end
             return {
                 DiffAdd     = { bg = "#dafbe1" },
                 DiffChange  = { bg = "#dafbe1" },
@@ -39,6 +46,50 @@ return {
     },
     config = function(_, opts)
         require("catppuccin").setup(opts)
-        vim.cmd.colorscheme("catppuccin")
+
+        -- Dark/light is driven by the `theme` CLI (and ghostty) via a shared state
+        -- file. We read it on startup and watch it live, so `theme dark` in any
+        -- terminal restyles every running nvim too — no restart, no remote plumbing.
+        local uv = vim.uv or vim.loop
+        local script = vim.fn.expand("~/.dotfiles/zshrc/bin/theme")
+        local state_dir = vim.fn.expand("~/.local/state/theme")
+        local state_file = state_dir .. "/mode"
+        vim.fn.mkdir(state_dir, "p")
+
+        local function read_mode()
+            local f = io.open(state_file, "r")
+            if not f then return "light" end
+            local m = (f:read("l") or ""):gsub("%s+", "")
+            f:close()
+            return m == "dark" and "dark" or "light"
+        end
+
+        local function apply()
+            local target = read_mode() == "dark" and "catppuccin-mocha" or "catppuccin-latte"
+            if vim.g.colors_name ~= target then
+                pcall(vim.cmd.colorscheme, target)
+            end
+        end
+
+        apply()
+        -- themery re-applies its saved colorscheme on startup; re-assert ours last.
+        vim.api.nvim_create_autocmd("VimEnter", { callback = apply })
+
+        -- Live-follow the state file in every running instance.
+        local watcher = uv.new_fs_event()
+        if watcher then
+            watcher:start(state_dir, {}, vim.schedule_wrap(function(err)
+                if not err then apply() end
+            end))
+        end
+
+        -- Drive the full switch (nvim + ghostty) from inside nvim as well.
+        for _, m in ipairs({ "Dark", "Light", "Toggle" }) do
+            vim.api.nvim_create_user_command("Theme" .. m, function()
+                vim.system({ script, m:lower() })
+            end, { desc = "Switch dark/light theme (nvim + ghostty)" })
+        end
+        vim.keymap.set("n", "<leader>ud", function() vim.system({ script, "toggle" }) end,
+            { desc = "Toggle dark/light (nvim + ghostty)" })
     end,
 }
