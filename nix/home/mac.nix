@@ -38,9 +38,6 @@ in
     lts = "cmake --preset Sanitizer && cmake --build --preset Sanitizer && ctest --preset Sanitizer";
     lqon = "cmake --preset default -DENABLE_QT=ON";
     lqoff = "cmake --preset default -DENABLE_QT=OFF";
-
-    # quick attach to the box's persistent codex session
-    clawdex = ''ssh -t clawsh "tmux new -A -s codex"'';
   };
 
   # mkAfter so this runs at the end of the generated .zshrc (matches the order

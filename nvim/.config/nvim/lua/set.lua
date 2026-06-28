@@ -54,6 +54,7 @@ vim.opt.scrolloff = 8
 vim.opt.splitbelow = true
 vim.opt.splitright = true
 vim.opt.updatetime = 250
+vim.opt.guicursor = "n-v-c-sm:block-Cursor,i-ci-ve:ver25-CursorInsert"
 
 vim.opt.fillchars:append({ diff = "╱" })
 vim.opt.diffopt:append({ "linematch:60", "algorithm:histogram", "indent-heuristic" })

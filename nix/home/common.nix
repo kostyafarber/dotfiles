@@ -261,7 +261,7 @@ in
     autosuggestion.enable = true;
     defaultKeymap = "viins"; # set -o vi
 
-    # PATH for EVERY shell, including non-login ssh commands — clawf/clawdex run
+    # PATH for EVERY shell, including non-login ssh commands — clawf/clawsh run
     # `ssh box "tmux ..."`, which only sources .zshenv. Put the nix profile
     # (tmux, node, ...) + ~/.local/bin (tmux-sessionizer) + rustup on PATH there.
     envExtra = ''

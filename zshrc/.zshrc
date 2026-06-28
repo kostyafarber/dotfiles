@@ -149,15 +149,9 @@ alias c='claude'
 alias cs='claude --dangerously-skip-permissions'
 alias csf='claude --dangerously-skip-permissions --model haiku'
 
-# clawdex: SSH into the box and attach-or-create a persistent tmux session.
-# -t forces a TTY (tmux won't start over SSH without one);
-# 'new -A -s codex' attaches if the session exists, else creates it.
-# Detach with Ctrl-b d (or just close the terminal) and rerun clawdex to resume.
-alias clawdex='ssh -t clawsh "tmux new -A -s codex"'
-
 # clawf: fuzzy-pick a repo ON the box and attach/create its tmux session.
 # Repo list comes from the box; fzf runs locally (the box has no fzf); tmux
-# runs on the box, so the session persists across disconnects like clawdex.
+# runs on the box, so the session persists across disconnects.
 # Optional arg pre-fills the fzf query, e.g. `clawf ladybird`.
 clawf() {
   local selected

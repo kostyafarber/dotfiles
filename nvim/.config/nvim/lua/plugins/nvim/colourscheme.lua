@@ -23,9 +23,15 @@ return {
             -- and would look wrong on mocha, where catppuccin's own diff/git
             -- palette is already tuned for dark.
             if tonumber(C.base:sub(2, 3), 16) < 128 then
-                return {}
+                return {
+                    Cursor = { fg = "#FF00FF" },
+                    lCursor = { fg = "#FF00FF" },
+                }
             end
             return {
+                Cursor = { fg = "#00FF00" },
+                lCursor = { fg = "#00FF00" },
+
                 DiffAdd     = { bg = "#dafbe1" },
                 DiffChange  = { bg = "#dafbe1" },
                 DiffDelete  = { bg = "#ffebe9", fg = "#82071e" },
@@ -71,9 +77,16 @@ return {
             end
         end
 
+        local function apply_cursor()
+            vim.api.nvim_set_hl(0, "Cursor",       { bg = "#C0392B", fg = "#ffffff" })
+            vim.api.nvim_set_hl(0, "CursorInsert", { bg = "#E07B00", fg = "#ffffff" })
+        end
+
         apply()
+        apply_cursor()
         -- themery re-applies its saved colorscheme on startup; re-assert ours last.
-        vim.api.nvim_create_autocmd("VimEnter", { callback = apply })
+        vim.api.nvim_create_autocmd("VimEnter", { callback = function() apply(); apply_cursor() end })
+        vim.api.nvim_create_autocmd("ColorScheme", { callback = apply_cursor })
 
         -- Live-follow the state file in every running instance.
         local watcher = uv.new_fs_event()
