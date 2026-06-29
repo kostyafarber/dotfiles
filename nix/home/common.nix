@@ -65,18 +65,19 @@ in
     enable = true;
     settings.user.name = "Kostya Farber";
     settings.user.email = "kostya.farber@gmail.com";
+  };
 
-    # delta as the pager for `git diff`/`show`/`log -p` (lazygit already used it
-    # via its own [delta "lazygit"] feature; this wires it into the CLI too).
-    # Matches your light/GitHub aesthetic; `navigate` = n/N to jump between files.
-    delta = {
-      enable = true;
-      options = {
-        navigate = true;
-        light = true;
-        line-numbers = true;
-        syntax-theme = "GitHub";
-      };
+  # delta as the pager for `git diff`/`show`/`log -p` (lazygit already used it
+  # via its own [delta "lazygit"] feature; this wires it into the CLI too).
+  # Matches your light/GitHub aesthetic; `navigate` = n/N to jump between files.
+  programs.delta = {
+    enable = true;
+    enableGitIntegration = true;
+    options = {
+      navigate = true;
+      light = true;
+      line-numbers = true;
+      syntax-theme = "GitHub";
     };
   };
 
@@ -272,6 +273,10 @@ in
 
     shellAliases = {
       e = "exit";
+      # rebuild this host's home-manager generation (target set per-host via
+      # $DOTFILES_HM_TARGET in mac.nix/box.nix); `update` also bumps flake inputs
+      hms = "home-manager switch --flake \"$HOME/.dotfiles#$DOTFILES_HM_TARGET\"";
+      update = "( cd \"$HOME/.dotfiles\" && nix flake update ) && home-manager switch --flake \"$HOME/.dotfiles#$DOTFILES_HM_TARGET\"";
       c = "claude";
       cs = "claude --dangerously-skip-permissions";
       csf = "claude --dangerously-skip-permissions --model haiku";
