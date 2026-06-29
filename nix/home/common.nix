@@ -269,6 +269,11 @@ in
       case ":$PATH:" in *":$HOME/.nix-profile/bin:"*) ;; *) export PATH="$HOME/.nix-profile/bin:$PATH" ;; esac
       case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
       [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+      # A function, not a shellAlias, so it resolves in non-interactive shells
+      # too (Claude Code / Codex `! tt`, `ssh box "tt"`) — those source .zshenv
+      # but never .zshrc, and aliases don't expand non-interactively anyway.
+      tt() { theme toggle "$@"; }
     '';
 
     shellAliases = {
@@ -284,7 +289,6 @@ in
       cxs = "codex --dangerously-bypass-approvals-and-sandbox";
 
       nrd = "npm run dev";
-      tt = "theme toggle";
       drc = "nvim $HOME/.dotfiles";
       vrc = "nvim $HOME/.zshrc";
       crc = "nvim $HOME/.claude";
