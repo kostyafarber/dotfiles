@@ -12,9 +12,13 @@
 #   theme status     # print current mode
 set -euo pipefail
 
-GHOSTTY_CONFIG="$HOME/.dotfiles/ghostty/.config/ghostty/config"
+# Theme lives in its own include file OUTSIDE the ghostty config tree (config has
+# `config-file = ?~/.local/state/theme/ghostty.conf`) so toggling never dirties the
+# git-tracked config, and ghostty never re-enters its own config dir — an include
+# sitting beside `config` makes ghostty load it twice and report "cycle detected".
 STATE_DIR="$HOME/.local/state/theme"
 STATE_FILE="$STATE_DIR/mode"
+GHOSTTY_CONFIG="$STATE_DIR/ghostty.conf"
 
 # mode -> ghostty theme name (resolves to the matching file in ghostty/themes/)
 ghostty_theme() { [[ "$1" == dark ]] && echo "catppuccin-mocha" || echo "catppuccin-latte"; }

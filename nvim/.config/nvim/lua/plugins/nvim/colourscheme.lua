@@ -84,7 +84,6 @@ return {
 
         apply()
         apply_cursor()
-        -- themery re-applies its saved colorscheme on startup; re-assert ours last.
         vim.api.nvim_create_autocmd("VimEnter", { callback = function() apply(); apply_cursor() end })
         vim.api.nvim_create_autocmd("ColorScheme", { callback = apply_cursor })
 

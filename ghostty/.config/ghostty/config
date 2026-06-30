@@ -1,4 +1,8 @@
-theme = catppuccin-latte
+# Active theme lives outside the config tree, rewritten by the `theme` script, so
+# toggling light/dark never dirties this tracked config. It must live OUTSIDE
+# ~/.config/ghostty — an include beside `config` makes ghostty re-enter its own
+# config dir and fail with "cycle detected". `?` = optional include.
+config-file = ?~/.local/state/theme/ghostty.conf
 font-family = Berkeley Mono
 font-size = 12
 keybind = shift+enter=text:\n
