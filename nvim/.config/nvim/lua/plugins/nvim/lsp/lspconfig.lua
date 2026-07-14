@@ -38,10 +38,12 @@ return {
             },
         })
 
+        vim.lsp.config("erlang_ls", {})
+
         vim.lsp.enable({
             "ts_ls", "lua_ls", "html", "cssls", "tailwindcss",
             "svelte", "graphql", "emmet_ls", "prismals", "pyright", "ruff",
-            "rust_analyzer",
+            "rust_analyzer", "erlang_ls",
         })
 
         vim.lsp.config("pyright", {

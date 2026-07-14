@@ -41,6 +41,8 @@ in
     unzip
     uv          # replaces conda
     nodejs_22
+    erlang
+    rebar3
     fastfetch
     pokemon-colorscripts
   ];
