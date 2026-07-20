@@ -152,6 +152,7 @@ return {
             },
             sources = {
                 explorer = {
+                    hidden = true,
                     layout = { preset = "sidebar", layout = { position = "right", width = 80 } },
                 },
                 lines = {

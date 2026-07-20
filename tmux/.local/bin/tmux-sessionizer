@@ -4,38 +4,52 @@
 # its tmux session. Cancel (Esc / Ctrl+C) → fall through to a plain shell.
 #
 # Configure search roots via TMUX_SESSIONIZER_PATHS (newline- or colon-separated).
-# Defaults to "$HOME/repos".
+# Defaults to "$HOME/repos". Roots are searched one level deep.
+#
+# TMUX_SESSIONIZER_EXTRA_PATHS lists individual projects to offer as-is (not
+# searched into). Defaults to "$HOME/.dotfiles".
 #
 # Examples:
 #   export TMUX_SESSIONIZER_PATHS="$HOME/repos:$HOME/work"
 #   export TMUX_SESSIONIZER_PATHS="$HOME/repos
 #   $HOME/work
 #   $HOME/personal"
+#   export TMUX_SESSIONIZER_EXTRA_PATHS="$HOME/.dotfiles:$HOME/notes"
 
 set -uo pipefail
 
 if [[ $# -eq 1 ]]; then
     selected=$1
 else
-    # Build the list of search roots. Allow newline OR colon as separators.
-    raw=${TMUX_SESSIONIZER_PATHS:-$HOME/repos}
-    paths=()
-    while IFS= read -r line; do
-        [[ -z $line ]] && continue
-        # shellcheck disable=SC2206
-        IFS=':' parts=($line)
-        for p in "${parts[@]}"; do
-            [[ -d $p ]] && paths+=("$p")
-        done
-    done <<< "$raw"
+    # Split a newline- OR colon-separated list into existing directories.
+    split_dirs() {
+        local line p
+        while IFS= read -r line; do
+            [[ -z $line ]] && continue
+            # shellcheck disable=SC2206
+            IFS=':' parts=($line)
+            for p in "${parts[@]}"; do
+                [[ -d $p ]] && printf '%s\n' "$p"
+            done
+        done <<< "$1"
+    }
 
-    if [[ ${#paths[@]} -eq 0 ]]; then
+    paths=()
+    while IFS= read -r p; do paths+=("$p"); done \
+        < <(split_dirs "${TMUX_SESSIONIZER_PATHS:-$HOME/repos}")
+
+    extras=()
+    while IFS= read -r p; do extras+=("$p"); done \
+        < <(split_dirs "${TMUX_SESSIONIZER_EXTRA_PATHS:-$HOME/.dotfiles}")
+
+    if [[ ${#paths[@]} -eq 0 && ${#extras[@]} -eq 0 ]]; then
         echo "tmux-sessionizer: no valid paths in TMUX_SESSIONIZER_PATHS" >&2
         exit 1
     fi
 
-    selected=$(fd -L --type d --max-depth 1 . "${paths[@]}" 2>/dev/null \
-        | fzf --reverse --prompt="project> " --height=60% --border)
+    selected=$( { [[ ${#extras[@]} -gt 0 ]] && printf '%s\n' "${extras[@]}"
+                  [[ ${#paths[@]} -gt 0 ]] && fd -L --type d --max-depth 1 . "${paths[@]}" 2>/dev/null
+                } | fzf --reverse --prompt="project> " --height=60% --border)
 fi
 
 if [[ -z $selected ]]; then
