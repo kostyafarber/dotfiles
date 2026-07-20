@@ -1,8 +1,16 @@
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 
 # MacBook. Shared core comes from common.nix; this adds the mac-only bits.
 let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";
+
+  # Markdown preview extension for MarkEdit (Shift-Cmd-V in the app).
+  # Bump: update version + `nix store prefetch-file --unpack <url>` for the hash.
+  markeditPreview = pkgs.fetchzip {
+    url = "https://github.com/MarkEdit-app/MarkEdit-preview/releases/download/v1.8.1/MarkEdit-preview-1.8.1.zip";
+    hash = "sha256-UnOLTN4Xj5kpH9tw2WEXhLCheTmzctx+LA+caAOc4aA=";
+    stripRoot = false; # zip has a __MACOSX sibling dir, so can't strip
+  };
 in
 {
   home.username = "kostyafarber";
@@ -28,6 +36,41 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/vscode/Library/Application Support/Code/User/settings.json";
   home.file."Library/Application Support/Code/User/keybindings.json".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/vscode/Library/Application Support/Code/User/keybindings.json";
+
+  # Mac GUI apps that aren't in nixpkgs, installed as brew casks. Declared here
+  # so a home-manager switch converges them like everything else. Removing an
+  # entry does NOT uninstall the cask — do that manually with `brew uninstall`.
+  home.activation.brewCasks =
+    let
+      casks = [ "markedit" ];
+    in
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      if [ -x /opt/homebrew/bin/brew ]; then
+        for cask in ${lib.escapeShellArgs casks}; do
+          /opt/homebrew/bin/brew list --cask "$cask" >/dev/null 2>&1 \
+            || run /opt/homebrew/bin/brew install --cask "$cask"
+        done
+      fi
+    '';
+
+  # MarkEdit extensions live inside the app's sandbox container. Real copy, not
+  # a store symlink — the sandbox can't follow links out to /nix/store.
+  home.activation.markeditExtensions = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    markeditScripts="$HOME/Library/Containers/app.cyan.markedit/Data/Documents/scripts"
+    run mkdir -p "$markeditScripts"
+    run cp -f ${markeditPreview}/MarkEdit-preview-1.8.1/dist/markedit-preview.js "$markeditScripts/"
+    run chmod 644 "$markeditScripts/markedit-preview.js"
+  '';
+
+  # MarkEdit as the default app for markdown files (idempotent; needs the app
+  # from the brewCasks hook above to be present).
+  home.activation.markdownDefaultApp = lib.hm.dag.entryAfter [ "brewCasks" ] ''
+    if [ -d /Applications/MarkEdit.app ]; then
+      run ${pkgs.duti}/bin/duti -s app.cyan.markedit .md all
+      run ${pkgs.duti}/bin/duti -s app.cyan.markedit .markdown all
+      run ${pkgs.duti}/bin/duti -s app.cyan.markedit net.daringfireball.markdown all
+    fi
+  '';
 
   programs.zsh.shellAliases = {
     # ladybird dev (mac, brew-provided llvm)
@@ -66,7 +109,7 @@ in
       *) export PATH="$PNPM_HOME:$PATH" ;;
     esac
 
-    # node comes from nix (common.nix nodejs_22) — nvm + the per-cd load-nvmrc
+    # node comes from nix (common.nix nodejs_24) — nvm + the per-cd load-nvmrc
     # hook were dropped. `corepack enable` once if you want pnpm/yarn shims.
 
     # Ctrl-F: fuzzy-pick a project and open its tmux session (local)

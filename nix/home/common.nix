@@ -40,7 +40,7 @@ in
     gnumake
     unzip
     uv          # replaces conda
-    nodejs_22
+    nodejs_24
     erlang
     rebar3
     fastfetch
@@ -268,8 +268,11 @@ in
     # `ssh box "tmux ..."`, which only sources .zshenv. Put the nix profile
     # (tmux, node, ...) + ~/.local/bin (tmux-sessionizer) + rustup on PATH there.
     envExtra = ''
-      case ":$PATH:" in *":$HOME/.nix-profile/bin:"*) ;; *) export PATH="$HOME/.nix-profile/bin:$PATH" ;; esac
-      case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+      # Move managed tools to the front even when a parent process inherited
+      # the same directories later in PATH (for example Codex or an SSH shell).
+      typeset -U path PATH
+      path=("$HOME/.nix-profile/bin" "$HOME/.local/bin" $path)
+      export PATH
       [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 
       # A function, not a shellAlias, so it resolves in non-interactive shells
