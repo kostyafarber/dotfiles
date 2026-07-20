@@ -1,11 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
-
-const VAULT_ROOT = "/Users/kostyafarber/Documents/KostyaVault";
-const SHIFT_BOARD_PATH = join(VAULT_ROOT, "projects", "shift-board.md");
 
 type WorkflowMode = "design" | "implement";
 
@@ -22,7 +17,7 @@ const MODES: Record<WorkflowMode, ModeConfig> = {
 		label: "Design",
 		description: "Read-only API/design discussion; snippets are illustrative, not edits",
 		thinking: "high",
-		tools: ["read", "grep", "find", "ls", "obsidian_search"],
+		tools: ["read", "grep", "find", "ls"],
 		instructions: [
 			"You are in DESIGN MODE.",
 			"Do not edit or write files. Do not run mutation commands.",
@@ -35,14 +30,13 @@ const MODES: Record<WorkflowMode, ModeConfig> = {
 		label: "Implement",
 		description: "Make focused edits, run relevant checks, summarize the diff",
 		thinking: "high",
-		tools: ["read", "grep", "find", "ls", "bash", "edit", "write", "obsidian_search"],
+		tools: ["read", "grep", "find", "ls", "bash", "edit", "write"],
 		instructions: [
 			"You are in IMPLEMENT MODE.",
 			"Make focused, direct edits that match the agreed design. Keep scope tight.",
 			"Read before editing, prefer surgical edits, and run relevant tests/checks when practical.",
 			"If the design seems wrong during implementation, stop and explain the issue instead of pushing through.",
 			"After implementation, summarize changed files, tests run, and any follow-ups.",
-			"If work clearly completes an Obsidian ticket, ask before marking it done on the board.",
 		].join("\n"),
 	},
 };
@@ -112,51 +106,6 @@ async function showModePicker(pi: ExtensionAPI, ctx: ExtensionContext, currentMo
 	});
 }
 
-function normalizeTicketToken(value: string): string {
-	const token = value.trim().replace(/^\[\[/, "").replace(/\]\]$/, "").split("|")[0] ?? "";
-	const base = basename(token, extname(token));
-	return base || token;
-}
-
-function ticketTokenFromEditor(ctx: ExtensionContext): string | undefined {
-	const text = ctx.ui.getEditorText();
-	return text.match(/\[\[([^\]\n]+)\]\]/)?.[1];
-}
-
-async function markShiftTicketDone(ctx: ExtensionContext, rawToken: string): Promise<void> {
-	const ticket = normalizeTicketToken(rawToken);
-	if (!ticket) {
-		ctx.ui.notify("Usage: /ticket-done <ticket link or name>", "warning");
-		return;
-	}
-
-	const ok = await ctx.ui.confirm("Mark ticket done?", `Update ${SHIFT_BOARD_PATH}\n\nTicket: ${ticket}`);
-	if (!ok) return;
-
-	const before = await readFile(SHIFT_BOARD_PATH, "utf8");
-	const lines = before.split("\n");
-	let changed = false;
-
-	const after = lines
-		.map((line) => {
-			if (changed || !line.includes("- [ ]") || !line.includes("[[") || !line.includes(ticket)) {
-				return line;
-			}
-
-			changed = true;
-			return line.replace("- [ ]", "- [x]");
-		})
-		.join("\n");
-
-	if (!changed) {
-		ctx.ui.notify(`No unchecked board item found for ${ticket}`, "warning");
-		return;
-	}
-
-	await writeFile(SHIFT_BOARD_PATH, after, "utf8");
-	ctx.ui.notify(`Marked ${ticket} done on shift-board.md`, "info");
-}
-
 export default function workflowModesExtension(pi: ExtensionAPI): void {
 	let activeMode: WorkflowMode | undefined;
 
@@ -206,16 +155,4 @@ export default function workflowModesExtension(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.registerCommand("ticket-done", {
-		description: "Mark a Shift Obsidian board item done; defaults to the first [[ticket]] in the editor",
-		handler: async (args, ctx) => {
-			const token = args.trim() || ticketTokenFromEditor(ctx);
-			if (!token) {
-				ctx.ui.notify("No ticket argument or [[ticket]] found in the editor", "warning");
-				return;
-			}
-
-			await markShiftTicketDone(ctx, token);
-		},
-	});
 }

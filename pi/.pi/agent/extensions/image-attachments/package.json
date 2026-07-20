@@ -1,0 +1,16 @@
+{
+  "name": "local-image-attachments",
+  "private": true,
+  "type": "module",
+  "description": "Local Pi image attachment placeholders and expandable tmux previews",
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  }
+}

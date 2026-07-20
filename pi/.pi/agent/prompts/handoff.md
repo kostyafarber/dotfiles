@@ -1,7 +1,7 @@
 ---
-description: Create an Obsidian-friendly handoff for the current session
+description: Create a handoff for the current session
 ---
-Create a concise Obsidian-friendly handoff note for this session.
+Create a concise Markdown handoff for this session.
 
 Format:
 # Handoff - <short task name>

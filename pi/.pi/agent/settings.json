@@ -1,8 +1,10 @@
 {
   "lastChangelogVersion": "0.80.10",
   "defaultProvider": "openai-codex",
-  "defaultModel": "gpt-5.5",
-  "defaultThinkingLevel": "high",
+  "defaultModel": "gpt-5.6-sol",
+  "defaultThinkingLevel": "xhigh",
   "theme": "catppuccin-latte-clean",
-  "quietStartup": true
+  "quietStartup": true,
+  "showHardwareCursor": true,
+  "editorPaddingX": 2
 }

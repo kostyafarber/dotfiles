@@ -12,7 +12,7 @@ Workflow:
 3. Inspect the code before editing. Prefer minimal changes.
 4. Implement the fix/feature.
 5. Run the smallest useful tests/lint/typecheck available.
-6. End with an Obsidian-friendly handoff summary:
+6. End with a concise handoff summary:
    - Status
    - Files changed
    - Tests run + result

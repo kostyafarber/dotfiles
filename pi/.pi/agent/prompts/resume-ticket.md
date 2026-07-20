@@ -1,5 +1,5 @@
 ---
-description: Resume work from an Obsidian handoff or pasted notes
+description: Resume work from a handoff or pasted notes
 argument-hint: "<handoff/notes>"
 ---
 Resume this work from the handoff/notes below:
@@ -12,4 +12,4 @@ Before editing:
 3. Verify assumptions against the repo.
 4. Continue with minimal changes.
 
-End with an updated Obsidian handoff.
+End with an updated Markdown handoff.

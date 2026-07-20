@@ -67,9 +67,6 @@ export default function (pi: ExtensionAPI) {
 		],
 		parameters: Type.Object({
 			query: Type.String({ description: "Research prompt to send to local Claude Code." }),
-			maxBudgetUsd: Type.Optional(
-				Type.Number({ description: "Maximum Claude Code spend for this invocation. Default: 1.00", minimum: 0.01 }),
-			),
 			timeoutSeconds: Type.Optional(
 				Type.Number({ description: "Kill Claude if it runs longer than this. Default: 180", minimum: 5 }),
 			),
@@ -105,7 +102,6 @@ export default function (pi: ExtensionAPI) {
 				? "/Users/kostyafarber/.local/bin/claude"
 				: "claude";
 			const claudeBin = process.env.CLAUDE_BIN || defaultClaude;
-			const maxBudget = params.maxBudgetUsd ?? 1.0;
 			const timeoutSeconds = params.timeoutSeconds ?? 180;
 			const prompt = [
 				"Use web search/fetch as needed. Return a concise, useful answer with markdown source links.",
@@ -122,14 +118,14 @@ export default function (pi: ExtensionAPI) {
 				"--forward-subagent-text",
 				"--tools",
 				"WebSearch,WebFetch",
-				"--max-budget-usd",
-				String(maxBudget),
+				"--allowedTools",
+				"WebSearch,WebFetch",
 			];
 			if (params.model) args.push("--model", params.model);
 			if (params.effort) args.push("--effort", params.effort);
 			args.push(prompt);
 
-			addTrace({ type: "status", message: `Starting Claude Code web research (budget $${maxBudget})` });
+			addTrace({ type: "status", message: "Starting Claude Code web research" });
 			emit("Starting Claude search...", true);
 
 			const exitCode = await new Promise<number>((resolve) => {
