@@ -120,6 +120,22 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/lazygit/.config/lazygit/config.yml";
 
   # ---------------------------------------------------------------------------
+  # pi coding agent — keep static config/extensions/prompts/themes in dotfiles.
+  # Secrets and runtime state stay unmanaged in ~/.pi/agent:
+  # auth.json, models-store.json, sessions/.
+  # ---------------------------------------------------------------------------
+  home.file.".pi/agent/AGENTS.md".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/AGENTS.md";
+  home.file.".pi/agent/settings.json".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/settings.json";
+  home.file.".pi/agent/extensions".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/extensions";
+  home.file.".pi/agent/prompts".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/prompts";
+  home.file.".pi/agent/themes".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/themes";
+
+  # ---------------------------------------------------------------------------
   # hunk — terminal diff viewer for reviewing changes, especially agent-authored
   # ones (`hunk diff` for the working tree, `hunk show` for the last commit,
   # `hunk diff --watch` to live-reload while an agent keeps editing). On both
