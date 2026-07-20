@@ -11,6 +11,7 @@ return {
             { "<leader>r", group = "rename/restart" },
             { "<leader>c", group = "code" },
             { "<leader>n", group = "notify" },
+            { "<leader>o", group = "open" },
             { "<leader>b", group = "buffer" },
         },
     },

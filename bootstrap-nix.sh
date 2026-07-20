@@ -30,7 +30,10 @@ if [ ! -d "$DOTDIR/.git" ]; then
   git clone "$REPO" "$DOTDIR"
 fi
 
-# 3. Activate
+# 3. Git filter: strip the "model" key Claude Code writes into settings.json
+git -C "$DOTDIR" config filter.claude-settings.clean "jq 'del(.model)'"
+
+# 4. Activate
 echo "==> home-manager switch -> $TARGET"
 nix run "$HM_REF" -- switch -b backup --flake "$DOTDIR#$TARGET"
 

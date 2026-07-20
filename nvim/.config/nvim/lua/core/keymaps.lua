@@ -32,6 +32,10 @@ k("n", "<leader>of", function()
   vim.fn.jobstart({ "open", "-R", vim.fn.expand("%:p") })
 end, { desc = "Reveal file in Finder" })
 
+k("n", "<leader>ox", function()
+  vim.fn.jobstart({ "open", vim.fn.expand("%:p") })
+end, { desc = "Open file in default app" })
+
 k("n", "<leader>cp", function()
   local path = vim.fn.expand("%:p")
   vim.fn.setreg("+", path)

@@ -21,10 +21,21 @@
           }
         ]
       }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "tldraw-offline",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh '/Users/kostyafarber/skills/tldraw-offline/inject-server-context.sh' SubagentStart"
+          }
+        ]
+      }
     ]
   },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "skipDangerousModePermissionPrompt": true,
   "theme": "light",
   "editorMode": "vim"
