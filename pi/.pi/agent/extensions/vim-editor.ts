@@ -11,6 +11,8 @@ import {
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
 import {
+	type AutocompleteItem,
+	type AutocompleteProvider,
 	CURSOR_MARKER,
 	type Component,
 	type EditorTheme,
@@ -42,6 +44,7 @@ const BAR_CURSOR = "\x1b[6 q";
 const DEFAULT_CURSOR = "\x1b[0 q";
 
 type Mode = "normal" | "insert" | "visual";
+type ModeLabelKind = Mode | "leader" | "operator";
 type Operator = "yank" | "delete" | "change";
 type Motion = "h" | "l" | "w" | "b" | "e" | "0" | "$";
 
@@ -83,6 +86,11 @@ type CommandPaletteAction = {
 type CommandPaletteItem = CommandPaletteCommand | CommandPaletteAction;
 type CommandPaletteCommandSpec = Omit<CommandPaletteCommand, "kind">;
 
+type InlineSlashPrefix = {
+	prefix: string;
+	startCol: number;
+};
+
 type LeaderPaletteEntry = {
 	segment: string;
 	path: string[];
@@ -117,6 +125,80 @@ const BUILTIN_COMMANDS: CommandPaletteCommandSpec[] = [
 	{ command: "logout", description: "Remove provider authentication", source: "built-in" },
 	{ command: "quit", description: "Quit Pi", source: "built-in" },
 ];
+
+function inlineSlashPrefix(lines: string[], cursorLine: number, cursorCol: number): InlineSlashPrefix | undefined {
+	const currentLine = lines[cursorLine] ?? "";
+	const textBeforeCursor = currentLine.slice(0, cursorCol);
+	const match = /(?:^|[ \t])\/(\S*)$/.exec(textBeforeCursor);
+	if (!match || match[1]?.includes("/")) return undefined;
+
+	const startCol = (match.index ?? 0) + match[0].lastIndexOf("/");
+	const hasEarlierText =
+		lines.slice(0, cursorLine).some((line) => line.trim().length > 0) ||
+		currentLine.slice(0, startCol).trim().length > 0;
+	if (!hasEarlierText) return undefined;
+
+	return { prefix: textBeforeCursor.slice(startCol), startCol };
+}
+
+function commandAutocompleteItems(pi: ExtensionAPI): AutocompleteItem[] {
+	const byName = new Map<string, AutocompleteItem>();
+	for (const command of BUILTIN_COMMANDS) {
+		byName.set(command.command, {
+			value: command.command,
+			label: command.command,
+			description: command.description,
+		});
+	}
+	for (const command of pi.getCommands()) {
+		if (byName.has(command.name)) continue;
+		byName.set(command.name, {
+			value: command.name,
+			label: command.name,
+			description: command.description,
+		});
+	}
+	return [...byName.values()];
+}
+
+function inlineSlashAutocomplete(pi: ExtensionAPI, current: AutocompleteProvider): AutocompleteProvider {
+	return {
+		async getSuggestions(lines, cursorLine, cursorCol, options) {
+			const inlinePrefix = inlineSlashPrefix(lines, cursorLine, cursorCol);
+			if (!inlinePrefix) return current.getSuggestions(lines, cursorLine, cursorCol, options);
+
+			const query = inlinePrefix.prefix.slice(1);
+			const items = fuzzyFilter(commandAutocompleteItems(pi), query, (item) => item.value);
+			if (items.length === 0) return null;
+
+			return { items, prefix: inlinePrefix.prefix };
+		},
+		applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
+			const inlinePrefix = inlineSlashPrefix(lines, cursorLine, cursorCol);
+			if (!inlinePrefix || inlinePrefix.prefix !== prefix) {
+				return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
+			}
+
+			const currentLine = lines[cursorLine] ?? "";
+			const draftLines = [...lines];
+			draftLines[cursorLine] =
+				currentLine.slice(0, inlinePrefix.startCol) + currentLine.slice(cursorCol);
+			const draft = draftLines.join("\n").trim();
+			const command = `/${item.value}`;
+			const completedText = draft ? `${command} ${draft}` : `${command} `;
+
+			return {
+				lines: completedText.split("\n"),
+				cursorLine: 0,
+				cursorCol: command.length + 1,
+			};
+		},
+		shouldTriggerFileCompletion(lines, cursorLine, cursorCol) {
+			if (inlineSlashPrefix(lines, cursorLine, cursorCol)) return true;
+			return current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? true;
+		},
+	};
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -642,6 +724,7 @@ class VimEditor extends CustomEditor {
 		theme: EditorTheme,
 		keybindings: KeybindingsManager,
 		promptSymbol: string,
+		private readonly styleModeLabel: (kind: ModeLabelKind, text: string) => string,
 		private readonly leaderConfig: LeaderConfig | undefined,
 		private readonly showLeaderPalette: () => Promise<LeaderBinding | null>,
 		private readonly showCommandPalette: () => Promise<CommandPaletteItem | null>,
@@ -966,6 +1049,16 @@ class VimEditor extends CustomEditor {
 		}
 	}
 
+	private tryInlineSlashAutocomplete(): void {
+		if (this.isShowingAutocomplete()) return;
+
+		const cursor = this.getCursor();
+		if (!inlineSlashPrefix(this.getLines(), cursor.line, cursor.col)) return;
+
+		const editor = this as unknown as { tryTriggerAutocomplete: () => void };
+		editor.tryTriggerAutocomplete();
+	}
+
 	handleInput(data: string): void {
 		if (matchesKey(data, "escape")) {
 			if (this.pendingOperator) {
@@ -982,6 +1075,7 @@ class VimEditor extends CustomEditor {
 
 		if (this.mode === "insert") {
 			super.handleInput(data);
+			this.tryInlineSlashAutocomplete();
 			return;
 		}
 
@@ -1141,18 +1235,21 @@ class VimEditor extends CustomEditor {
 			lines[1] = `${this.promptSymbol} ${lines[1].slice(2)}`;
 		}
 
-		const label = this.leaderActive
-			? " LEADER "
-			: this.pendingOperator
-				? ` ${this.pendingOperator.toUpperCase()}${this.pendingTextObjectScope ? ` ${this.pendingTextObjectScope.toUpperCase()}` : ""} `
-				: this.mode === "normal"
-					? " NORMAL "
-					: this.mode === "visual"
-						? " VISUAL "
-						: " INSERT ";
+		let labelKind: ModeLabelKind = this.mode;
+		let labelText = ` ${this.mode.toUpperCase()} `;
+		if (this.leaderActive) {
+			labelKind = "leader";
+			labelText = " LEADER ";
+		} else if (this.pendingOperator) {
+			labelKind = "operator";
+			labelText = ` ${this.pendingOperator.toUpperCase()}${this.pendingTextObjectScope ? ` ${this.pendingTextObjectScope.toUpperCase()}` : ""} `;
+		}
+
+		const label = this.styleModeLabel(labelKind, labelText);
+		const labelWidth = visibleWidth(label);
 		const last = lines.length - 1;
-		if (visibleWidth(lines[last]!) >= label.length) {
-			lines[last] = truncateToWidth(lines[last]!, width - label.length, "") + label;
+		if (visibleWidth(lines[last]!) >= labelWidth) {
+			lines[last] = truncateToWidth(lines[last]!, width - labelWidth, "") + label;
 		}
 		return lines;
 	}
@@ -1225,13 +1322,29 @@ export default function vimEditorExtension(pi: ExtensionAPI): void {
 
 	pi.on("session_start", (_event, ctx) => {
 		if (loadedLeaderConfig.error) ctx.ui.notify(loadedLeaderConfig.error, "warning");
+		ctx.ui.addAutocompleteProvider((current) => inlineSlashAutocomplete(pi, current));
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 			const promptSymbol = `\x1b[1;30m${PROMPT_SYMBOL}\x1b[22;39m`;
+			const styleModeLabel = (kind: ModeLabelKind, text: string): string => {
+				const uiTheme = ctx.ui.theme;
+				switch (kind) {
+					case "normal":
+						return uiTheme.fg("customMessageLabel", uiTheme.bold(text));
+					case "insert":
+						return uiTheme.fg("success", uiTheme.bold(text));
+					case "visual":
+						return uiTheme.fg("warning", uiTheme.bold(text));
+					case "leader":
+					case "operator":
+						return uiTheme.fg("syntaxNumber", uiTheme.bold(text));
+				}
+			};
 			editor = new VimEditor(
 				tui,
 				theme,
 				keybindings,
 				promptSymbol,
+				styleModeLabel,
 				loadedLeaderConfig.config,
 				() => showPalette(ctx),
 				() => showCommands(ctx),
