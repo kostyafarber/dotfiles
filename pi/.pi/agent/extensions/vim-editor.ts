@@ -1,17 +1,33 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	copyToClipboard,
 	CustomEditor,
+	type AppKeybinding,
 	type ExtensionAPI,
+	type ExtensionContext,
 	type KeybindingsManager,
+	type Theme,
 } from "@earendil-works/pi-coding-agent";
 import {
 	CURSOR_MARKER,
+	type Component,
 	type EditorTheme,
+	type Focusable,
+	fuzzyFilter,
+	Input,
 	matchesKey,
+	parseKey,
 	truncateToWidth,
 	type TUI,
 	visibleWidth,
 } from "@earendil-works/pi-tui";
+import {
+	COMMAND_PALETTE_DISCOVER_CHANNEL,
+	COMMAND_PALETTE_RUN_CHANNEL,
+	type CommandPaletteDiscoverEvent,
+} from "./lib/command-palette.ts";
 
 const PROMPT_SYMBOL = "󰜴";
 
@@ -28,6 +44,438 @@ const DEFAULT_CURSOR = "\x1b[0 q";
 type Mode = "normal" | "insert" | "visual";
 type Operator = "yank" | "delete" | "change";
 type Motion = "h" | "l" | "w" | "b" | "e" | "0" | "$";
+
+type LeaderBinding = {
+	key: string;
+	label: string;
+	description?: string;
+	action?: AppKeybinding;
+	command?: string;
+	prefill?: string;
+	palette?: boolean;
+};
+
+type LeaderConfig = {
+	leader: string;
+	bindings: LeaderBinding[];
+};
+
+type LoadedLeaderConfig = {
+	config?: LeaderConfig;
+	error?: string;
+};
+
+type CommandPaletteCommand = {
+	kind: "command";
+	command: string;
+	description?: string;
+	source: string;
+};
+
+type CommandPaletteAction = {
+	kind: "action";
+	id: string;
+	label: string;
+	description?: string;
+	source: string;
+};
+
+type CommandPaletteItem = CommandPaletteCommand | CommandPaletteAction;
+type CommandPaletteCommandSpec = Omit<CommandPaletteCommand, "kind">;
+
+type LeaderPaletteEntry = {
+	segment: string;
+	path: string[];
+	binding?: LeaderBinding;
+	hasChildren: boolean;
+};
+
+const LEADER_CONFIG_PATH = join(dirname(fileURLToPath(import.meta.url)), "vim-editor-keymap.json");
+const MAX_PALETTE_ROWS = 10;
+
+const BUILTIN_COMMANDS: CommandPaletteCommandSpec[] = [
+	{ command: "model", description: "Choose the active model", source: "built-in" },
+	{ command: "scoped-models", description: "Configure models used by model cycling", source: "built-in" },
+	{ command: "settings", description: "Open Pi settings", source: "built-in" },
+	{ command: "resume", description: "Resume a previous session", source: "built-in" },
+	{ command: "new", description: "Start a new session", source: "built-in" },
+	{ command: "name", description: "Name the current session", source: "built-in" },
+	{ command: "session", description: "Show current session information", source: "built-in" },
+	{ command: "tree", description: "Navigate the current session tree", source: "built-in" },
+	{ command: "fork", description: "Fork from an earlier user message", source: "built-in" },
+	{ command: "clone", description: "Clone the current branch into a new session", source: "built-in" },
+	{ command: "compact", description: "Compact the current context", source: "built-in" },
+	{ command: "copy", description: "Copy the last assistant message", source: "built-in" },
+	{ command: "export", description: "Export the current session", source: "built-in" },
+	{ command: "import", description: "Import a session", source: "built-in" },
+	{ command: "share", description: "Share the current session", source: "built-in" },
+	{ command: "reload", description: "Reload extensions and resources", source: "built-in" },
+	{ command: "hotkeys", description: "Show keyboard shortcuts", source: "built-in" },
+	{ command: "changelog", description: "Show Pi's changelog", source: "built-in" },
+	{ command: "trust", description: "Save a project trust decision", source: "built-in" },
+	{ command: "login", description: "Authenticate with a provider", source: "built-in" },
+	{ command: "logout", description: "Remove provider authentication", source: "built-in" },
+	{ command: "quit", description: "Quit Pi", source: "built-in" },
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasLeaderAction(binding: LeaderBinding): boolean {
+	return Boolean(binding.action || binding.command || binding.prefill || binding.palette);
+}
+
+function keyParts(binding: LeaderBinding): string[] {
+	return binding.key.split(" ");
+}
+
+function formatKey(key: string): string {
+	if (key === "space") return "SPC";
+	return key
+		.split("+")
+		.map((part) => (part === "ctrl" ? "C" : part === "shift" ? "S" : part === "alt" ? "A" : part))
+		.join("-");
+}
+
+function loadLeaderConfig(): LoadedLeaderConfig {
+	try {
+		const parsed = JSON.parse(readFileSync(LEADER_CONFIG_PATH, "utf8")) as unknown;
+		if (!isRecord(parsed)) throw new Error("root must be an object");
+		if (typeof parsed.leader !== "string" || !parsed.leader.trim() || /\s/.test(parsed.leader.trim())) {
+			throw new Error('"leader" must be one key identifier, such as "space"');
+		}
+		if (!Array.isArray(parsed.bindings) || parsed.bindings.length === 0) {
+			throw new Error('"bindings" must be a non-empty array');
+		}
+
+		const bindings: LeaderBinding[] = parsed.bindings.map((value, index) => {
+			if (!isRecord(value)) throw new Error(`binding ${index + 1} must be an object`);
+			if (typeof value.key !== "string" || !value.key.trim()) {
+				throw new Error(`binding ${index + 1} needs a key`);
+			}
+			if (typeof value.label !== "string" || !value.label.trim()) {
+				throw new Error(`binding ${index + 1} needs a label`);
+			}
+
+			const action = typeof value.action === "string" ? (value.action as AppKeybinding) : undefined;
+			const command = typeof value.command === "string" ? value.command : undefined;
+			const prefill = typeof value.prefill === "string" ? value.prefill : undefined;
+			const palette = value.palette === true ? true : undefined;
+			const actionCount =
+				Number(Boolean(action)) + Number(Boolean(command)) + Number(Boolean(prefill)) + Number(Boolean(palette));
+			if (actionCount > 1) {
+				throw new Error(
+					`binding "${value.key}" must use only one of action, command, prefill, or palette`,
+				);
+			}
+			if (command && !command.startsWith("/")) {
+				throw new Error(`command for binding "${value.key}" must start with /`);
+			}
+
+			return {
+				key: value.key.trim().replace(/\s+/g, " "),
+				label: value.label.trim(),
+				description: typeof value.description === "string" ? value.description.trim() : undefined,
+				action,
+				command,
+				prefill,
+				palette,
+			};
+		});
+
+		const seen = new Set<string>();
+		for (const binding of bindings) {
+			if (seen.has(binding.key)) throw new Error(`duplicate binding: "${binding.key}"`);
+			seen.add(binding.key);
+		}
+		for (const binding of bindings) {
+			if (hasLeaderAction(binding)) continue;
+			if (!bindings.some((candidate) => candidate.key.startsWith(`${binding.key} `))) {
+				throw new Error(`group "${binding.key}" has no child bindings`);
+			}
+		}
+
+		return { config: { leader: parsed.leader.trim(), bindings } };
+	} catch (error) {
+		return {
+			error: `Leader keys disabled: ${error instanceof Error ? error.message : String(error)} (${LEADER_CONFIG_PATH})`,
+		};
+	}
+}
+
+class LeaderPalette implements Component {
+	private prefix: string[] = [];
+	private selectedIndex = 0;
+
+	constructor(
+		private readonly tui: TUI,
+		private readonly theme: Theme,
+		private readonly keybindings: KeybindingsManager,
+		private readonly config: LeaderConfig,
+		private readonly done: (binding: LeaderBinding | null) => void,
+	) {}
+
+	private entries(): LeaderPaletteEntry[] {
+		const entries = new Map<string, LeaderPaletteEntry>();
+		for (const binding of this.config.bindings) {
+			const parts = keyParts(binding);
+			if (parts.length <= this.prefix.length) continue;
+			if (!this.prefix.every((part, index) => parts[index] === part)) continue;
+
+			const segment = parts[this.prefix.length]!;
+			const path = [...this.prefix, segment];
+			const exact = this.config.bindings.find((candidate) => candidate.key === path.join(" "));
+			const hasChildren = this.config.bindings.some((candidate) =>
+				candidate.key.startsWith(`${path.join(" ")} `),
+			);
+			if (!entries.has(segment)) entries.set(segment, { segment, path, binding: exact, hasChildren });
+		}
+		return [...entries.values()];
+	}
+
+	private activate(entry: LeaderPaletteEntry): void {
+		if (entry.binding && hasLeaderAction(entry.binding)) {
+			this.done(entry.binding);
+			return;
+		}
+		if (entry.hasChildren) {
+			this.prefix = entry.path;
+			this.selectedIndex = 0;
+			this.tui.requestRender();
+		}
+	}
+
+	private goBack(): void {
+		if (this.prefix.length === 0) {
+			this.done(null);
+			return;
+		}
+		this.prefix.pop();
+		this.selectedIndex = 0;
+		this.tui.requestRender();
+	}
+
+	handleInput(data: string): void {
+		const entries = this.entries();
+		if (this.keybindings.matches(data, "tui.select.cancel")) {
+			this.done(null);
+			return;
+		}
+		if (data === "h" || matchesKey(data, "left") || matchesKey(data, "backspace")) {
+			this.goBack();
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.select.up")) {
+			if (entries.length > 0) {
+				this.selectedIndex = (this.selectedIndex - 1 + entries.length) % entries.length;
+				this.tui.requestRender();
+			}
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.select.down")) {
+			if (entries.length > 0) {
+				this.selectedIndex = (this.selectedIndex + 1) % entries.length;
+				this.tui.requestRender();
+			}
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.select.confirm")) {
+			const selected = entries[this.selectedIndex];
+			if (selected) this.activate(selected);
+			return;
+		}
+
+		const key = parseKey(data);
+		const direct = key ? entries.find((entry) => entry.segment === key) : undefined;
+		if (direct) this.activate(direct);
+		else this.tui.terminal.write("\x07");
+	}
+
+	render(width: number): string[] {
+		if (width < 4) return [truncateToWidth("keys", Math.max(1, width), "")];
+		const safeWidth = width;
+		const innerWidth = safeWidth - 2;
+		const entries = this.entries();
+		this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, entries.length - 1));
+		const start = Math.max(
+			0,
+			Math.min(
+				this.selectedIndex - Math.floor(MAX_PALETTE_ROWS / 2),
+				Math.max(0, entries.length - MAX_PALETTE_ROWS),
+			),
+		);
+		const visibleEntries = entries.slice(start, start + MAX_PALETTE_ROWS);
+		const keyWidth = Math.max(3, ...visibleEntries.map((entry) => formatKey(entry.segment).length));
+		const path = [formatKey(this.config.leader), ...this.prefix.map(formatKey)].join(" ");
+		const rawLines = [
+			` ${this.theme.fg("accent", this.theme.bold("Leader commands"))}${this.theme.fg("dim", `  ${path}`)}`,
+			"",
+		];
+
+		for (let index = 0; index < visibleEntries.length; index++) {
+			const entry = visibleEntries[index]!;
+			const absoluteIndex = start + index;
+			const selected = absoluteIndex === this.selectedIndex;
+			const key = formatKey(entry.segment).padEnd(keyWidth);
+			const label = entry.binding?.label ?? `${entry.segment} commands`;
+			const group = entry.hasChildren && !hasLeaderAction(entry.binding ?? { key: "", label: "" });
+			const description = entry.binding?.description;
+			let line = `${selected ? this.theme.fg("accent", " › ") : "   "}`;
+			line += this.theme.fg("accent", key);
+			line += `  ${selected ? this.theme.bold(label) : label}`;
+			if (group) line += this.theme.fg("muted", "  ›");
+			if (description) line += this.theme.fg("dim", `  — ${description}`);
+			rawLines.push(line);
+		}
+
+		if (start > 0 || start + visibleEntries.length < entries.length) {
+			rawLines.push(this.theme.fg("dim", `  ${this.selectedIndex + 1}/${entries.length}`));
+		}
+		const backHint = this.prefix.length > 0 ? "h/←/⌫ back  ·  " : "";
+		rawLines.push(
+			"",
+			this.theme.fg("dim", `  key select  ·  ↑↓ navigate  ·  ${backHint}enter run  ·  esc close`),
+		);
+
+		const horizontal = "─".repeat(innerWidth);
+		const top = this.theme.fg("borderAccent", `╭${horizontal}╮`);
+		const bottom = this.theme.fg("borderAccent", `╰${horizontal}╯`);
+		const framed = rawLines.map((line) => {
+			const clipped = truncateToWidth(line, innerWidth, "");
+			const padded = `${clipped}${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))}`;
+			return (
+				this.theme.fg("borderAccent", "│") +
+				this.theme.bg("customMessageBg", padded) +
+				this.theme.fg("borderAccent", "│")
+			);
+		});
+		return [top, ...framed, bottom];
+	}
+
+	invalidate(): void {}
+}
+
+class CommandPalette implements Component, Focusable {
+	private readonly search = new Input();
+	private selectedIndex = 0;
+	private _focused = false;
+
+	constructor(
+		private readonly tui: TUI,
+		private readonly theme: Theme,
+		private readonly keybindings: KeybindingsManager,
+		private readonly items: CommandPaletteItem[],
+		private readonly done: (item: CommandPaletteItem | null) => void,
+	) {}
+
+	get focused(): boolean {
+		return this._focused;
+	}
+
+	set focused(value: boolean) {
+		this._focused = value;
+		this.search.focused = value;
+	}
+
+	private filteredItems(): CommandPaletteItem[] {
+		const query = this.search.getValue().trim();
+		if (!query) return this.items;
+		return fuzzyFilter(this.items, query, (item) => {
+			const name = item.kind === "command" ? item.command : item.label;
+			return `${name} ${item.description ?? ""} ${item.source}`;
+		});
+	}
+
+	handleInput(data: string): void {
+		const items = this.filteredItems();
+		if (this.keybindings.matches(data, "tui.select.cancel")) {
+			this.done(null);
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.select.up")) {
+			if (items.length > 0) {
+				this.selectedIndex = (this.selectedIndex - 1 + items.length) % items.length;
+				this.tui.requestRender();
+			}
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.select.down")) {
+			if (items.length > 0) {
+				this.selectedIndex = (this.selectedIndex + 1) % items.length;
+				this.tui.requestRender();
+			}
+			return;
+		}
+		if (this.keybindings.matches(data, "tui.select.confirm")) {
+			const selected = items[this.selectedIndex];
+			if (selected) this.done(selected);
+			return;
+		}
+
+		const previousQuery = this.search.getValue();
+		this.search.handleInput(data);
+		if (this.search.getValue() !== previousQuery) this.selectedIndex = 0;
+		this.tui.requestRender();
+	}
+
+	render(width: number): string[] {
+		if (width < 4) return [truncateToWidth("cmd", Math.max(1, width), "")];
+		const innerWidth = width - 2;
+		const items = this.filteredItems();
+		this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, items.length - 1));
+		const start = Math.max(
+			0,
+			Math.min(
+				this.selectedIndex - Math.floor(MAX_PALETTE_ROWS / 2),
+				Math.max(0, items.length - MAX_PALETTE_ROWS),
+			),
+		);
+		const visibleItems = items.slice(start, start + MAX_PALETTE_ROWS);
+		const rawLines = [
+			` ${this.theme.fg("accent", this.theme.bold("Command palette"))}${this.theme.fg("dim", `  ${items.length} items`)}`,
+			"",
+		];
+		const inputWidth = Math.max(1, innerWidth - 5);
+		const input = this.search.render(inputWidth)[0] ?? "";
+		rawLines.push(` ${this.theme.fg("accent", "❯")} ${input}`, "");
+
+		for (let index = 0; index < visibleItems.length; index++) {
+			const item = visibleItems[index]!;
+			const absoluteIndex = start + index;
+			const selected = absoluteIndex === this.selectedIndex;
+			const label = item.kind === "command" ? `/${item.command}` : item.label;
+			let line = selected ? this.theme.fg("accent", " › ") : "   ";
+			line += selected ? this.theme.bold(label) : label;
+			line += this.theme.fg("muted", `  [${item.source}]`);
+			if (item.description) line += this.theme.fg("dim", `  — ${item.description}`);
+			rawLines.push(line);
+		}
+		if (items.length === 0) rawLines.push(this.theme.fg("warning", "   No matching commands"));
+		if (start > 0 || start + visibleItems.length < items.length) {
+			rawLines.push(this.theme.fg("dim", `  ${this.selectedIndex + 1}/${items.length}`));
+		}
+		rawLines.push("", this.theme.fg("dim", "  type to search  ·  ↑↓ navigate  ·  enter select  ·  esc close"));
+
+		const horizontal = "─".repeat(innerWidth);
+		const top = this.theme.fg("borderAccent", `╭${horizontal}╮`);
+		const bottom = this.theme.fg("borderAccent", `╰${horizontal}╯`);
+		const framed = rawLines.map((line) => {
+			const clipped = truncateToWidth(line, innerWidth, "");
+			const padded = `${clipped}${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))}`;
+			return (
+				this.theme.fg("borderAccent", "│") +
+				this.theme.bg("customMessageBg", padded) +
+				this.theme.fg("borderAccent", "│")
+			);
+		});
+		return [top, ...framed, bottom];
+	}
+
+	invalidate(): void {
+		this.search.invalidate();
+	}
+}
 
 type EditorState = {
 	lines: string[];
@@ -187,8 +635,19 @@ class VimEditor extends CustomEditor {
 	private yankFlash: YankFlash | undefined;
 	private yankFlashTimer: ReturnType<typeof setTimeout> | undefined;
 	private renderedCursorMode: Mode | undefined;
+	private leaderActive = false;
 
-	constructor(tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager, promptSymbol: string) {
+	constructor(
+		tui: TUI,
+		theme: EditorTheme,
+		keybindings: KeybindingsManager,
+		promptSymbol: string,
+		private readonly leaderConfig: LeaderConfig | undefined,
+		private readonly showLeaderPalette: () => Promise<LeaderBinding | null>,
+		private readonly showCommandPalette: () => Promise<CommandPaletteItem | null>,
+		private readonly runCommandPaletteAction: (id: string) => void,
+		private readonly reportLeaderError: (message: string) => void,
+	) {
 		super(tui, theme, keybindings);
 		this.promptSymbol = promptSymbol;
 	}
@@ -457,6 +916,56 @@ class VimEditor extends CustomEditor {
 		this.tui.requestRender();
 	}
 
+	private submitCommand(command: string): void {
+		const draft = this.getText();
+		this.setText(command);
+		super.handleInput("\r");
+		this.setText(draft);
+	}
+
+	private async executeLeaderBinding(binding: LeaderBinding): Promise<void> {
+		if (binding.palette) {
+			const selected = await this.showCommandPalette();
+			if (selected?.kind === "action") {
+				this.runCommandPaletteAction(selected.id);
+			} else if (selected) {
+				const draft = this.getText();
+				this.setText(`/${selected.command}${draft ? ` ${draft}` : " "}`);
+				this.setMode("insert");
+			}
+			return;
+		}
+		if (binding.action) {
+			const handler = this.actionHandlers.get(binding.action);
+			if (handler) handler();
+			else this.reportLeaderError(`No handler is registered for ${binding.action}`);
+			return;
+		}
+		if (binding.command) {
+			this.submitCommand(binding.command);
+			return;
+		}
+		if (binding.prefill !== undefined) {
+			this.setText(`${binding.prefill}${this.getText()}`);
+			this.setMode("insert");
+		}
+	}
+
+	private async openLeaderPalette(): Promise<void> {
+		if (!this.leaderConfig || this.leaderActive) return;
+		this.leaderActive = true;
+		this.tui.requestRender();
+		try {
+			const binding = await this.showLeaderPalette();
+			if (binding) await this.executeLeaderBinding(binding);
+		} catch (error) {
+			this.reportLeaderError(error instanceof Error ? error.message : String(error));
+		} finally {
+			this.leaderActive = false;
+			this.tui.requestRender();
+		}
+	}
+
 	handleInput(data: string): void {
 		if (matchesKey(data, "escape")) {
 			if (this.pendingOperator) {
@@ -502,6 +1011,11 @@ class VimEditor extends CustomEditor {
 			if (data === operator[0]) this.applyLineOperator(operator);
 			else if (["h", "l", "w", "b", "e", "0", "$"].includes(data)) this.applyOperator(operator, data as Motion);
 			this.tui.requestRender();
+			return;
+		}
+
+		if (this.leaderConfig && matchesKey(data, this.leaderConfig.leader as Parameters<typeof matchesKey>[1])) {
+			void this.openLeaderPalette();
 			return;
 		}
 
@@ -627,13 +1141,15 @@ class VimEditor extends CustomEditor {
 			lines[1] = `${this.promptSymbol} ${lines[1].slice(2)}`;
 		}
 
-		const label = this.pendingOperator
-			? ` ${this.pendingOperator.toUpperCase()}${this.pendingTextObjectScope ? ` ${this.pendingTextObjectScope.toUpperCase()}` : ""} `
-			: this.mode === "normal"
-				? " NORMAL "
-				: this.mode === "visual"
-					? " VISUAL "
-					: " INSERT ";
+		const label = this.leaderActive
+			? " LEADER "
+			: this.pendingOperator
+				? ` ${this.pendingOperator.toUpperCase()}${this.pendingTextObjectScope ? ` ${this.pendingTextObjectScope.toUpperCase()}` : ""} `
+				: this.mode === "normal"
+					? " NORMAL "
+					: this.mode === "visual"
+						? " VISUAL "
+						: " INSERT ";
 		const last = lines.length - 1;
 		if (visibleWidth(lines[last]!) >= label.length) {
 			lines[last] = truncateToWidth(lines[last]!, width - label.length, "") + label;
@@ -644,11 +1160,84 @@ class VimEditor extends CustomEditor {
 
 export default function vimEditorExtension(pi: ExtensionAPI): void {
 	let editor: VimEditor | undefined;
+	const loadedLeaderConfig = loadLeaderConfig();
+
+	async function showPalette(ctx: ExtensionContext): Promise<LeaderBinding | null> {
+		const config = loadedLeaderConfig.config;
+		if (!config || ctx.mode !== "tui") return null;
+		return ctx.ui.custom<LeaderBinding | null>(
+			(tui, theme, keybindings, done) => new LeaderPalette(tui, theme, keybindings, config, done),
+			{
+				overlay: true,
+				overlayOptions: {
+					anchor: "bottom-center",
+					width: "72%",
+					minWidth: 48,
+					maxHeight: "70%",
+					margin: 1,
+				},
+			},
+		);
+	}
+
+	async function showCommands(ctx: ExtensionContext): Promise<CommandPaletteItem | null> {
+		if (ctx.mode !== "tui") return null;
+		const discovered: CommandPaletteCommand[] = pi.getCommands().map((command) => ({
+			kind: "command",
+			command: command.name,
+			description: command.description,
+			source: command.source,
+		}));
+		const builtins: CommandPaletteCommand[] = BUILTIN_COMMANDS.map((command) => ({
+			kind: "command",
+			...command,
+		}));
+		const byName = new Map<string, CommandPaletteCommand>();
+		for (const command of [...builtins, ...discovered]) {
+			if (!byName.has(command.command)) byName.set(command.command, command);
+		}
+		const actions: CommandPaletteAction[] = [];
+		const discoverEvent: CommandPaletteDiscoverEvent = {
+			add(items) {
+				for (const item of items) actions.push({ kind: "action", ...item });
+			},
+		};
+		pi.events.emit(COMMAND_PALETTE_DISCOVER_CHANNEL, discoverEvent);
+		const items: CommandPaletteItem[] = [...actions, ...byName.values()];
+		return ctx.ui.custom<CommandPaletteItem | null>(
+			(tui, theme, keybindings, done) => new CommandPalette(tui, theme, keybindings, items, done),
+			{
+				overlay: true,
+				overlayOptions: {
+					anchor: "center",
+					width: "76%",
+					minWidth: 52,
+					maxHeight: "80%",
+					margin: 1,
+				},
+			},
+		);
+	}
+
+	function runPaletteAction(id: string): void {
+		pi.events.emit(COMMAND_PALETTE_RUN_CHANNEL, { id });
+	}
 
 	pi.on("session_start", (_event, ctx) => {
+		if (loadedLeaderConfig.error) ctx.ui.notify(loadedLeaderConfig.error, "warning");
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 			const promptSymbol = `\x1b[1;30m${PROMPT_SYMBOL}\x1b[22;39m`;
-			editor = new VimEditor(tui, theme, keybindings, promptSymbol);
+			editor = new VimEditor(
+				tui,
+				theme,
+				keybindings,
+				promptSymbol,
+				loadedLeaderConfig.config,
+				() => showPalette(ctx),
+				() => showCommands(ctx),
+				runPaletteAction,
+				(message) => ctx.ui.notify(`Leader key: ${message}`, "warning"),
+			);
 			return editor;
 		});
 	});

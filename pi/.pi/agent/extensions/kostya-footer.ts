@@ -3,6 +3,8 @@ import type { AssistantMessage } from '@earendil-works/pi-ai'
 import type { ExtensionAPI, ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
 import { truncateToWidth, type TUI, visibleWidth } from '@earendil-works/pi-tui'
 
+const COLLABORATION_MODE_STATUS = 'kostya-collaboration-mode'
+
 function formatTokens(count: number): string {
 	if (count < 1_000) return count.toString()
 	if (count < 10_000) return `${(count / 1_000).toFixed(1)}k`
@@ -74,10 +76,12 @@ function renderProjectLine(
 	theme: Theme,
 	projectPath: string,
 	branch: string | null,
+	modeStatus: string | undefined,
 	sessionName: string | undefined
 ): string {
 	let line = theme.fg('mdLink', projectPath)
 	if (branch) line += theme.fg('success', ` (${branch})`)
+	if (modeStatus) line += `  ${sanitizeStatusText(modeStatus)}`
 	if (sessionName) line += theme.fg('dim', `  •  ${sessionName}`)
 	return truncateToWidth(line, width, theme.fg('dim', '…'))
 }
@@ -165,11 +169,13 @@ export default function kostyaFooterExtension(pi: ExtensionAPI): void {
 				invalidate() {},
 				render(width: number): string[] {
 					const renderContext = currentContext ?? ctx
+					const extensionStatuses = footerData.getExtensionStatuses()
 					const projectLine = renderProjectLine(
 						width,
 						theme,
 						projectPath,
 						footerData.getGitBranch(),
+						extensionStatuses.get(COLLABORATION_MODE_STATUS),
 						renderContext.sessionManager.getSessionName()
 					)
 					const statsLine = combineStatsAndModel(
@@ -179,7 +185,8 @@ export default function kostyaFooterExtension(pi: ExtensionAPI): void {
 					)
 					const lines = [projectLine, statsLine]
 
-					const statuses = Array.from(footerData.getExtensionStatuses().entries())
+					const statuses = Array.from(extensionStatuses.entries())
+						.filter(([key]) => key !== COLLABORATION_MODE_STATUS)
 						.sort(([a], [b]) => a.localeCompare(b))
 						.map(([, text]) => sanitizeStatusText(text))
 					if (statuses.length > 0) {

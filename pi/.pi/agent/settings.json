@@ -3,8 +3,11 @@
   "defaultProvider": "openai-codex",
   "defaultModel": "gpt-5.6-sol",
   "defaultThinkingLevel": "xhigh",
-  "theme": "catppuccin-latte-clean",
+  "theme": "catppuccin-latte-clean/catppuccin-mocha-clean",
   "quietStartup": true,
   "showHardwareCursor": true,
-  "editorPaddingX": 2
+  "editorPaddingX": 2,
+  "packages": [
+    "npm:beautiful-mermaid@1.1.3"
+  ]
 }

@@ -1,0 +1,87 @@
+{
+  "leader": "space",
+  "bindings": [
+    {
+      "key": "s",
+      "label": "Sessions",
+      "description": "Resume, tree, and fork"
+    },
+    {
+      "key": "s r",
+      "label": "Resume session",
+      "action": "app.session.resume"
+    },
+    {
+      "key": "s t",
+      "label": "Session tree",
+      "action": "app.session.tree"
+    },
+    {
+      "key": "s f",
+      "label": "Fork session",
+      "action": "app.session.fork"
+    },
+    {
+      "key": "m",
+      "label": "Modes",
+      "description": "Collaboration mode controls"
+    },
+    {
+      "key": "m d",
+      "label": "Design mode",
+      "command": "/mode design"
+    },
+    {
+      "key": "m n",
+      "label": "Default mode",
+      "command": "/mode default"
+    },
+    {
+      "key": "m i",
+      "label": "Implement design",
+      "command": "/mode implement"
+    },
+    {
+      "key": "u",
+      "label": "UI",
+      "description": "Display and thinking controls"
+    },
+    {
+      "key": "u o",
+      "label": "Toggle tool output",
+      "action": "app.tools.expand"
+    },
+    {
+      "key": "u t",
+      "label": "Toggle thinking blocks",
+      "action": "app.thinking.toggle"
+    },
+    {
+      "key": "u l",
+      "label": "Cycle thinking level",
+      "action": "app.thinking.cycle"
+    },
+    {
+      "key": "p",
+      "label": "Command palette",
+      "description": "Search built-ins, extensions, prompts, and skills",
+      "palette": true
+    },
+    {
+      "key": "f",
+      "label": "Choose model",
+      "action": "app.model.select"
+    },
+    {
+      "key": "c",
+      "label": "Clipboard viewer",
+      "command": "/clipboard"
+    },
+    {
+      "key": "h",
+      "label": "Prepare handoff",
+      "description": "Prefill a handoff command with the current draft",
+      "prefill": "/handoff "
+    }
+  ]
+}

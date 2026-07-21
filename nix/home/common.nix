@@ -194,6 +194,10 @@ in
     terminal = "tmux-256color";
     plugins = with pkgs.tmuxPlugins; [ sensible pain-control ];
     extraConfig = ''
+      # Preserve modified keys for Pi and other TUIs
+      set -g extended-keys on
+      set -g extended-keys-format csi-u
+
       # cross-terminal clipboard (works headless over SSH via OSC52)
       set -g set-clipboard on
 
@@ -269,6 +273,8 @@ in
   # dark/light theme switcher for nvim + ghostty (`theme dark|light|toggle`)
   home.file.".local/bin/theme".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/theme";
+  home.file.".local/bin/tt".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/tt";
 
   # ---------------------------------------------------------------------------
   # zsh — lean: oh-my-zsh dropped (prompt = oh-my-posh, `z` = zoxide,
@@ -290,11 +296,6 @@ in
       path=("$HOME/.nix-profile/bin" "$HOME/.local/bin" $path)
       export PATH
       [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
-
-      # A function, not a shellAlias, so it resolves in non-interactive shells
-      # too (Claude Code / Codex `! tt`, `ssh box "tt"`) — those source .zshenv
-      # but never .zshrc, and aliases don't expand non-interactively anyway.
-      tt() { theme toggle "$@"; }
     '';
 
     shellAliases = {

@@ -1,0 +1,30 @@
+{
+  "name": "local-pi-shiki-tools",
+  "private": true,
+  "type": "module",
+  "description": "Live Shiki syntax highlighting for Pi tool calls",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test syntax.test.ts"
+  },
+  "dependencies": {
+    "shiki": "4.0.2"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-tui": {
+      "optional": true
+    }
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

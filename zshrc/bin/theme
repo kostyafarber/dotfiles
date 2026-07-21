@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# theme — flip nvim + ghostty between catppuccin latte (light) and mocha (dark).
+# theme — flip nvim, ghostty, and Pi between catppuccin latte (light) and mocha (dark).
 #
 # Single source of truth: a tiny state file at ~/.local/state/theme/mode holding
-# "dark" or "light". Every running nvim watches it (libuv fs_event) and restyles
-# itself instantly; new nvim instances read it on startup. Ghostty has no external
+# "dark" or "light". Every running nvim and Pi session watches it and restyles
+# itself instantly; new instances read it on startup. Ghostty has no external
 # reload, so we rewrite its `theme =` line (new windows pick it up) and best-effort
 # trigger the reload_config keybind (default cmd+shift+,) for windows already open.
 #
@@ -20,8 +20,10 @@ STATE_DIR="$HOME/.local/state/theme"
 STATE_FILE="$STATE_DIR/mode"
 GHOSTTY_CONFIG="$STATE_DIR/ghostty.conf"
 
-# mode -> ghostty theme name (resolves to the matching file in ghostty/themes/)
+# mode -> app theme names
+# Ghostty names resolve to matching files in ghostty/themes/; Pi names resolve in ~/.pi/agent/themes/.
 ghostty_theme() { [[ "$1" == dark ]] && echo "catppuccin-mocha" || echo "catppuccin-latte"; }
+pi_theme() { [[ "$1" == dark ]] && echo "catppuccin-mocha-clean" || echo "catppuccin-latte-clean"; }
 
 current() {
   if [[ -r "$STATE_FILE" ]]; then tr -d '[:space:]' < "$STATE_FILE"; else echo light; fi
@@ -42,6 +44,7 @@ printf '%s\n' "$mode" > "$STATE_FILE"
 
 # 2. Rewrite ghostty's theme line (replace existing, else append).
 gtheme="$(ghostty_theme "$mode")"
+ptheme="$(pi_theme "$mode")"
 if [[ -f "$GHOSTTY_CONFIG" ]] && grep -qE '^theme = ' "$GHOSTTY_CONFIG"; then
   tmp="$(mktemp)"
   sed -E "s|^theme = .*|theme = ${gtheme}|" "$GHOSTTY_CONFIG" > "$tmp"
@@ -63,8 +66,8 @@ if command -v osascript >/dev/null 2>&1; then
   fi
 fi
 
-printf 'theme → %s  (ghostty: %s · nvim: catppuccin-%s)\n' \
-  "$mode" "$gtheme" "$([[ $mode == dark ]] && echo mocha || echo latte)"
+printf 'theme → %s  (ghostty: %s · nvim: catppuccin-%s · pi: %s)\n' \
+  "$mode" "$gtheme" "$([[ $mode == dark ]] && echo mocha || echo latte)" "$ptheme"
 if [[ $reloaded -eq 0 ]]; then
   printf '  ↳ open ghostty windows: press ⌘⇧, to reload (new windows already use it)\n'
 fi
