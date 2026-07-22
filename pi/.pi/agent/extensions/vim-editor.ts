@@ -724,6 +724,7 @@ class VimEditor extends CustomEditor {
 		theme: EditorTheme,
 		keybindings: KeybindingsManager,
 		promptSymbol: string,
+		private readonly styleBashPrompt: (text: string) => string,
 		private readonly styleModeLabel: (kind: ModeLabelKind, text: string) => string,
 		private readonly leaderConfig: LeaderConfig | undefined,
 		private readonly showLeaderPalette: () => Promise<LeaderBinding | null>,
@@ -1201,6 +1202,17 @@ class VimEditor extends CustomEditor {
 
 	render(width: number): string[] {
 		this.syncCursorStyle();
+
+		const isBashMode = this.getText().trimStart().startsWith("!");
+		if (isBashMode) {
+			const state = this.editorState();
+			const bashLine = state.lines.findIndex((line) => line.trimStart().startsWith("!"));
+			const bangColumn = bashLine >= 0 ? state.lines[bashLine]!.indexOf("!") : -1;
+			if (state.cursorLine === bashLine && state.cursorCol <= bangColumn) {
+				state.cursorCol = bangColumn + 1;
+			}
+		}
+
 		const lines = super.render(width);
 		if (lines.length === 0) return lines;
 
@@ -1232,7 +1244,14 @@ class VimEditor extends CustomEditor {
 		}
 
 		if (lines[1]?.startsWith("  ")) {
-			lines[1] = `${this.promptSymbol} ${lines[1].slice(2)}`;
+			const content = lines[1].slice(2);
+			if (isBashMode) {
+				const bangIndex = content.indexOf("!");
+				const command = bangIndex >= 0 ? content.slice(0, bangIndex) + content.slice(bangIndex + 1) : content;
+				lines[1] = `${this.styleBashPrompt("!")} ${command}`;
+			} else {
+				lines[1] = `${this.promptSymbol} ${content}`;
+			}
 		}
 
 		let labelKind: ModeLabelKind = this.mode;
@@ -1251,6 +1270,7 @@ class VimEditor extends CustomEditor {
 		if (visibleWidth(lines[last]!) >= labelWidth) {
 			lines[last] = truncateToWidth(lines[last]!, width - labelWidth, "") + label;
 		}
+
 		return lines;
 	}
 }
@@ -1325,6 +1345,10 @@ export default function vimEditorExtension(pi: ExtensionAPI): void {
 		ctx.ui.addAutocompleteProvider((current) => inlineSlashAutocomplete(pi, current));
 		ctx.ui.setEditorComponent((tui, theme, keybindings) => {
 			const promptSymbol = `\x1b[1;30m${PROMPT_SYMBOL}\x1b[22;39m`;
+			const styleBashPrompt = (text: string): string => {
+				const uiTheme = ctx.ui.theme;
+				return uiTheme.fg("error", uiTheme.bold(text));
+			};
 			const styleModeLabel = (kind: ModeLabelKind, text: string): string => {
 				const uiTheme = ctx.ui.theme;
 				switch (kind) {
@@ -1344,6 +1368,7 @@ export default function vimEditorExtension(pi: ExtensionAPI): void {
 				theme,
 				keybindings,
 				promptSymbol,
+				styleBashPrompt,
 				styleModeLabel,
 				loadedLeaderConfig.config,
 				() => showPalette(ctx),
