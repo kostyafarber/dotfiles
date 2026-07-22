@@ -20,13 +20,13 @@ const MODE_DESIGN_ACTION = "collaboration-mode.design";
 const MODE_IMPLEMENT_ACTION = "collaboration-mode.implement";
 const MUTATING_TOOLS = new Set(["edit", "write"]);
 
-const DESIGN_INSTRUCTIONS = `You are in Design mode. Do not edit files or external state. Inspect the existing system and work conversationally with me until the change has an implementable shape.
+const DESIGN_INSTRUCTIONS = `You are in Design mode. Do not edit project files, configuration, or external systems. Inspect the existing system and work conversationally with me until the change has an implementable shape.
 
 Sketch concrete types, API signatures, representative call sites, data flow, ownership, lifecycle, invalidation, failure semantics, and a loose file-by-file diff. Scale the depth to the change and omit categories that do not apply. Challenge unnecessary abstractions and ensure the design fits the existing system.
 
 Label agreed decisions, open questions, and deferred work. Repository-specific architectural principles remain in AGENTS.md, skills, and architecture documentation.
 
-You may use Bash only for read-only inspection. Do not modify project files, version-control state, configuration, or remote systems. Stop at the coding boundary and wait until I switch out of Design mode and explicitly ask you to proceed.`;
+Use Bash only for read-only inspection, with one narrow exception: when the user asks to continue the discussion on a different Git base, or changing branches/worktrees is otherwise necessary to inspect the intended code, you may fetch remote refs and create or switch local branches/worktrees. This is optional repository setup, never a prerequisite for design work. Preserve unrelated changes and do not default to a new worktree: use the current checkout when switching is safe, and create a separate worktree only when the user requests one or approves it to avoid a real conflict. Do not commit, merge, rebase, reset, stash, push, delete branches, or modify project files. Stop at the coding boundary and wait until I switch out of Design mode and explicitly ask you to proceed.`;
 
 function isMode(value: unknown): value is CollaborationMode {
 	return value === "default" || value === "design";
@@ -109,7 +109,7 @@ export default function collaborationModesExtension(pi: ExtensionAPI): void {
 		if (options.persist !== false) persistMode();
 		if (options.notify !== false && ctx.hasUI) {
 			const message = mode === "design"
-				? "Design mode — read-only collaboration; Ctrl+Shift+S returns to Default"
+				? "Design mode — collaborative inspection; Ctrl+Shift+S returns to Default"
 				: "Default mode";
 			ctx.ui.notify(message, "info");
 		}
@@ -172,7 +172,7 @@ export default function collaborationModesExtension(pi: ExtensionAPI): void {
 			{
 				id: MODE_DESIGN_ACTION,
 				label: `Mode: Design${activeMode === "design" ? " (active)" : ""}`,
-				description: "Enter read-only collaborative design mode",
+				description: "Enter collaborative design mode",
 				source: "mode",
 			},
 			{

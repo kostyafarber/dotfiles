@@ -70,14 +70,19 @@ export default function renderMermaidExtension(pi: ExtensionAPI): void {
 		name: "render_mermaid",
 		label: "Mermaid (ASCII)",
 		description:
-			"Render Mermaid source as a polished, terminal-width-aware ASCII diagram. The source stays hidden and the diagram is always fully expanded.",
-		promptSnippet: "Render explanatory diagrams as terminal-friendly ASCII without exposing Mermaid source.",
+			"Render Mermaid source as a polished, terminal-width-aware ASCII diagram with a concise, topic-specific title. The source stays hidden and the diagram is always fully expanded.",
+		promptSnippet: "Before explaining a non-linear system in prose, render one focused terminal-friendly ASCII diagram when it will anchor the explanation.",
 		promptGuidelines: [
-			"Use render_mermaid when a diagram would make architecture, control flow, state, sequencing, or relationships clearer.",
+			"Before drafting an explanation, check whether the concept has branching paths, loops, parallel work, multiple actors or layers, state transitions, ownership boundaries, or non-obvious relationships. If one diagram would replace or anchor more than one paragraph, call render_mermaid first; do not wait for the user to request a diagram.",
+			"Give every render_mermaid call a concise, topic-specific title that says what the diagram explains; never use a generic title such as 'Mermaid' or 'Diagram'.",
+			"Remain selective: do not diagram simple lists, short linear flows, or ideas that are clearer in a few sentences. Every diagram should answer a concrete structural question, and one focused diagram is usually enough.",
 			"Prefer a compact top-to-bottom layout unless a left-to-right layout will fit comfortably in a terminal.",
 			"Do not include a fenced Mermaid block or repeat the ASCII diagram in the response; the tool result is the visible diagram.",
 		],
 		parameters: Type.Object({
+			title: Type.String({
+				description: "Concise, topic-specific diagram title, usually 2–8 words.",
+			}),
 			source: Type.String({
 				description: "Mermaid diagram source, including its graph/flowchart/sequence/class/ER/state declaration.",
 			}),
@@ -120,8 +125,9 @@ export default function renderMermaidExtension(pi: ExtensionAPI): void {
 			};
 		},
 
-		renderCall(_args, theme) {
-			return new Text(theme.fg("customMessageLabel", theme.bold("Mermaid (ASCII)")), 0, 0);
+		renderCall(args, theme) {
+			const title = typeof args.title === "string" && args.title.trim() ? args.title.trim() : "Mermaid (ASCII)";
+			return new Text(theme.fg("customMessageLabel", theme.bold(title)), 0, 0);
 		},
 
 		renderResult(result, _options, theme) {

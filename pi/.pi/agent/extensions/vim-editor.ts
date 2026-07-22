@@ -36,6 +36,8 @@ const PROMPT_SYMBOL = "󰜴";
 const YANK_FLASH_MS = 100;
 const YANK_HIGHLIGHT = "\x1b[30;103m";
 const VISUAL_HIGHLIGHT = "\x1b[97;44m";
+const INSERT_MODE_COLOR = "\x1b[38;2;64;160;43m";
+const NORMAL_MODE_COLOR = "\x1b[38;2;30;102;245m";
 const ANSI_RESET = "\x1b[0m";
 const ANSI_SEQUENCE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
 const FAKE_CURSOR = /\x1b\[7m(.*?)\x1b\[0m/;
@@ -1061,6 +1063,11 @@ class VimEditor extends CustomEditor {
 	}
 
 	handleInput(data: string): void {
+		if (matchesKey(data, "ctrl+shift+r")) {
+			this.submitCommand("/reload");
+			return;
+		}
+
 		if (matchesKey(data, "escape")) {
 			if (this.pendingOperator) {
 				this.pendingOperator = undefined;
@@ -1353,9 +1360,9 @@ export default function vimEditorExtension(pi: ExtensionAPI): void {
 				const uiTheme = ctx.ui.theme;
 				switch (kind) {
 					case "normal":
-						return uiTheme.fg("customMessageLabel", uiTheme.bold(text));
+						return `${NORMAL_MODE_COLOR}${uiTheme.bold(text)}${ANSI_RESET}`;
 					case "insert":
-						return uiTheme.fg("success", uiTheme.bold(text));
+						return `${INSERT_MODE_COLOR}${uiTheme.bold(text)}${ANSI_RESET}`;
 					case "visual":
 						return uiTheme.fg("warning", uiTheme.bold(text));
 					case "leader":

@@ -163,6 +163,7 @@ in
       theme = "catppuccin-latte";
       mode = "auto";          # split | stack | auto (responsive)
       line_numbers = true;
+      menu_bar = false;
       watch = false;
     };
   };
