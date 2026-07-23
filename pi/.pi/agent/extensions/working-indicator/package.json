@@ -1,15 +1,11 @@
 {
-  "name": "local-pi-shiki-tools",
+  "name": "local-pi-working-indicator",
   "private": true,
   "type": "module",
-  "description": "Shiki highlighting and compact hierarchy summaries for Pi tool calls",
+  "description": "Interactive cli-spinners gallery and Pi working indicator picker",
   "license": "MIT",
-  "scripts": {
-    "test": "node --test *.test.ts"
-  },
   "dependencies": {
-    "diff": "8.0.4",
-    "shiki": "4.0.2"
+    "cli-spinners": "3.4.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

@@ -42,7 +42,7 @@ in
   # entry does NOT uninstall the cask — do that manually with `brew uninstall`.
   home.activation.brewCasks =
     let
-      casks = [ "markedit" ];
+      casks = [ "markedit" "whatsapp" ];
     in
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       if [ -x /opt/homebrew/bin/brew ]; then

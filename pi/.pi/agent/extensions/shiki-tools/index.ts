@@ -1,12 +1,33 @@
 import {
 	createBashToolDefinition,
 	createEditToolDefinition,
+	createFindToolDefinition,
+	createGrepToolDefinition,
 	createReadToolDefinition,
 	createWriteToolDefinition,
+	formatSize,
+	keyHint,
 	type ExtensionAPI,
 	type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { Box, Container, Spacer, Text } from "@earendil-works/pi-tui";
+import {
+	changeStats,
+	compactDisplayDiff,
+	contentLineCount,
+	displayDiffStats,
+	findResultCount,
+	formatElapsed,
+	grepResultStats,
+	parseBashResult,
+	parseDisplayDiff,
+	stripTrailingNotice,
+	type DisplayDiffLine,
+} from "./hierarchy.ts";
+import {
+	pairedIntraLineRanges,
+	styleAnsiRanges,
+} from "./intraline.ts";
 import {
 	ExpressiveHighlighter,
 	languageFromPath,
@@ -20,17 +41,23 @@ const COLLAPSED_EDIT_LINES = 16;
 const MAX_EXPANDED_LINES = 400;
 const DIFF_LINE_BACKGROUNDS: Record<
 	ShikiTheme,
-	{ addition: string; deletion: string }
+	{ addition: string; additionEmphasis: string; deletion: string; deletionEmphasis: string }
 > = {
 	"catppuccin-latte": {
 		addition: "\u001b[48;2;231;240;229m", // #e7f0e5
+		additionEmphasis: "\u001b[48;2;172;238;187m", // #aceebb
 		deletion: "\u001b[48;2;242;228;232m", // #f2e4e8
+		deletionEmphasis: "\u001b[48;2;255;206;203m", // #ffcecb
 	},
 	"catppuccin-mocha": {
 		addition: "\u001b[48;2;33;51;38m", // #213326
+		additionEmphasis: "\u001b[48;2;48;80;57m", // #305039
 		deletion: "\u001b[48;2;56;36;45m", // #38242d
+		deletionEmphasis: "\u001b[48;2;82;46;59m", // #522e3b
 	},
 };
+const BOLD = "\u001b[1m";
+const RESET_BOLD = "\u001b[22m";
 const RESET_BACKGROUND = "\u001b[49m";
 
 type RenderTheme = Pick<Theme, "bold" | "fg" | "bg" | "name">;
@@ -48,6 +75,21 @@ type ShikiEditState = {
 	shikiUsed?: boolean;
 };
 
+type BashHierarchyState = {
+	startedAt?: number;
+	endedAt?: number;
+};
+
+type TruncationDetails = {
+	truncation?: {
+		truncated?: boolean;
+		totalLines?: number;
+		totalBytes?: number;
+		outputLines?: number;
+		outputBytes?: number;
+	};
+};
+
 export default async function (pi: ExtensionAPI): Promise<void> {
 	let syntax: ExpressiveHighlighter | undefined;
 	try {
@@ -59,6 +101,8 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 	const cwd = process.cwd();
 	const bash = createBashToolDefinition(cwd);
 	const read = createReadToolDefinition(cwd);
+	const grep = createGrepToolDefinition(cwd);
+	const find = createFindToolDefinition(cwd);
 	const write = createWriteToolDefinition(cwd);
 	const edit = createEditToolDefinition(cwd);
 
@@ -71,7 +115,7 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 			}
 
 			const commandLines = syntax.highlight(args.command, "bash", shikiThemeFor(theme));
-			let output = theme.fg("toolTitle", theme.bold("Ran"));
+			let output = theme.fg("toolTitle", theme.bold("run"));
 			if (commandLines.length > 0) {
 				output += ` ${commandLines[0] ?? ""}`;
 				for (const line of commandLines.slice(1)) output += `\n    ${line}`;
@@ -80,6 +124,36 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 				output += theme.fg("dim", ` (timeout: ${args.timeout}s)`);
 			}
 			component.setText(output);
+			return component;
+		},
+		renderResult(result, options, theme, context) {
+			const state = context.state as typeof context.state & BashHierarchyState;
+			if (!options.isPartial) state.endedAt ??= Date.now();
+
+			const rawOutput = getTextOutput(result) ?? "";
+			const parsed = parseBashResult(rawOutput);
+			const outputLines = contentLineCount(parsed.body);
+			const status = context.isError
+				? parsed.exitCode === undefined
+					? theme.fg("error", "failed")
+					: theme.fg("error", `exit ${parsed.exitCode}`)
+				: options.isPartial
+					? theme.fg("accent", "running")
+					: theme.fg("success", "exit 0");
+			const metrics = [status];
+			if (state.startedAt !== undefined) {
+				metrics.push(theme.fg("muted", formatElapsed((state.endedAt ?? Date.now()) - state.startedAt)));
+			}
+			if (outputLines > 0) metrics.push(countMetric(theme, outputLines, "output line"));
+
+			const summary = branchSummary(theme, metrics);
+			const text = options.expanded && parsed.body
+				? `${summary}\n\n${plainOutput(theme, parsed.body)}`
+				: summary;
+			const component = context.lastComponent instanceof Text
+				? context.lastComponent
+				: new Text("", 0, 0);
+			component.setText(text);
 			return component;
 		},
 	});
@@ -91,27 +165,69 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 			const language = languageFromPath(path);
 			const textOutput = getTextOutput(result);
 			const hasImage = result.content.some((item) => item.type === "image");
-			const sourceLines = textOutput?.replace(/\r\n?/g, "\n").split("\n") ?? [];
 
-			if (
-				!syntax ||
-				!language ||
-				!options.expanded ||
-				context.isError ||
-				hasImage ||
-				textOutput === undefined ||
-				sourceLines.length > MAX_EXPANDED_LINES
-			) {
+			if (hasImage || textOutput === undefined) {
 				return read.renderResult?.(result, options, theme, context) ?? new Text("", 0, 0);
+			}
+			if (context.isError) return errorResult(theme, textOutput);
+
+			const body = stripTrailingNotice(textOutput);
+			const truncation = (result.details as TruncationDetails | undefined)?.truncation;
+			const lineTotal = truncation?.truncated
+				? (truncation.outputLines ?? contentLineCount(body))
+				: (truncation?.totalLines ?? contentLineCount(body));
+			const byteTotal = truncation?.truncated
+				? (truncation.outputBytes ?? Buffer.byteLength(body))
+				: (truncation?.totalBytes ?? Buffer.byteLength(body));
+			const metrics = [
+				countMetric(theme, lineTotal, "line"),
+				theme.fg("muted", formatSize(byteTotal)),
+			];
+			if (truncation?.truncated) metrics.push(theme.fg("warning", "truncated"));
+			const summary = branchSummary(theme, metrics);
+
+			let text = summary;
+			if (options.expanded && body) {
+				const sourceLines = body.replace(/\r\n?/g, "\n").split("\n");
+				const highlighted = syntax && language && sourceLines.length <= MAX_EXPANDED_LINES
+					? syntax.highlight(replaceTabs(body), language, shikiThemeFor(theme)).join("\n")
+					: plainOutput(theme, body);
+				text += `\n\n${highlighted}`;
 			}
 
 			const component = context.lastComponent instanceof Text
 				? context.lastComponent
 				: new Text("", 0, 0);
-			component.setText(
-				`\n${syntax.highlight(replaceTabs(textOutput), language, shikiThemeFor(theme)).join("\n")}`,
-			);
+			component.setText(text);
 			return component;
+		},
+	});
+
+	pi.registerTool({
+		...grep,
+		renderResult(result, options, theme, context) {
+			const textOutput = getTextOutput(result) ?? "";
+			if (context.isError) return errorResult(theme, textOutput);
+
+			const body = stripTrailingNotice(textOutput);
+			const stats = grepResultStats(body);
+			const metrics = [countMetric(theme, stats.matches, "match")];
+			if (stats.files > 0) metrics.push(countMetric(theme, stats.files, "file"));
+			if (isTruncated(result.details)) metrics.push(theme.fg("warning", "truncated"));
+			return summaryResult(theme, branchSummary(theme, metrics), body, options.expanded, context.lastComponent);
+		},
+	});
+
+	pi.registerTool({
+		...find,
+		renderResult(result, options, theme, context) {
+			const textOutput = getTextOutput(result) ?? "";
+			if (context.isError) return errorResult(theme, textOutput);
+
+			const body = stripTrailingNotice(textOutput);
+			const metrics = [countMetric(theme, findResultCount(body), "file")];
+			if (isTruncated(result.details)) metrics.push(theme.fg("warning", "truncated"));
+			return summaryResult(theme, branchSummary(theme, metrics), body, options.expanded, context.lastComponent);
 		},
 	});
 
@@ -140,6 +256,19 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 				output += theme.fg("muted", `\n… ${preview.remaining} more lines`);
 			}
 			component.setText(output);
+			return component;
+		},
+		renderResult(result, _options, theme, context) {
+			const content = typeof context.args.content === "string" ? context.args.content : "";
+			if (context.isError) return errorResult(theme, getTextOutput(result) ?? "");
+			const summary = branchSummary(theme, [
+				countMetric(theme, contentLineCount(content), "line"),
+				theme.fg("muted", formatSize(Buffer.byteLength(content))),
+			]);
+			const component = context.lastComponent instanceof Text
+				? context.lastComponent
+				: new Text("", 0, 0);
+			component.setText(summary);
 			return component;
 		},
 	});
@@ -183,8 +312,11 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 		},
 		renderResult(result, options, theme, context) {
 			const state = context.state as typeof context.state & ShikiEditState;
+			let resultComponent: unknown = context.lastComponent;
 			if (!state.shikiUsed) {
-				return edit.renderResult?.(result, options, theme, context) ?? new Container();
+				// Preserve the built-in preview's settled diff/error state, then replace
+				// its result row with our compact hierarchy summary.
+				resultComponent = edit.renderResult?.(result, options, theme, context);
 			}
 
 			if (state.shikiCall) {
@@ -197,17 +329,44 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 				state.shikiCall.invalidate();
 			}
 
-			const component = context.lastComponent instanceof Container
-				? context.lastComponent
+			const component = resultComponent instanceof Container
+				? resultComponent
 				: new Container();
 			component.clear();
 			if (context.isError) {
-				const error = getTextOutput(result);
-				if (error) {
-					component.addChild(new Spacer(1));
-					component.addChild(new Text(theme.fg("error", error), 1, 0));
-				}
+				component.addChild(errorResult(theme, getTextOutput(result) ?? ""));
+				return component;
 			}
+
+			const edits = getEdits(context.args as EditInput);
+			const inputStats = changeStats(edits);
+			const actualDiff = resultDisplayDiff(result.details);
+			const actualLines = actualDiff ? parseDisplayDiff(actualDiff) : [];
+			const actualStats = displayDiffStats(actualLines);
+			const stats = actualLines.length > 0
+				? { ...actualStats, replacements: edits.length }
+				: inputStats;
+
+			const path = toolPath(context.args);
+			const language = languageFromPath(path);
+			if (state.shikiCall && syntax && language && actualLines.length > 0) {
+				renderCompletedEdit(
+					state.shikiCall,
+					path,
+					actualLines,
+					language,
+					options.expanded,
+					syntax,
+					theme,
+					shikiThemeFor(theme),
+				);
+			}
+
+			component.addChild(new Text(branchSummary(theme, [
+				theme.fg("success", `+${stats.additions}`),
+				theme.fg("error", `−${stats.deletions}`),
+				countMetric(theme, stats.replacements, "replacement"),
+			]), 0, 0));
 			return component;
 		},
 	});
@@ -216,6 +375,62 @@ export default async function (pi: ExtensionAPI): Promise<void> {
 		syntax?.dispose();
 		syntax = undefined;
 	});
+}
+
+function branchSummary(theme: RenderTheme, metrics: string[]): string {
+	const rail = theme.fg("text", theme.bold("  ╰ "));
+	return `${rail}${metrics.join(theme.fg("muted", " · "))}`;
+}
+
+function countMetric(theme: RenderTheme, count: number, singular: string): string {
+	const label = count === 1 ? singular : `${singular}s`;
+	return `${theme.fg("text", theme.bold(String(count)))}${theme.fg("muted", ` ${label}`)}`;
+}
+
+function plainOutput(theme: RenderTheme, text: string): string {
+	return replaceTabs(text)
+		.split("\n")
+		.map((line) => theme.fg("toolOutput", line))
+		.join("\n");
+}
+
+function errorResult(theme: RenderTheme, output: string): Text {
+	const summary = branchSummary(theme, [theme.fg("error", "failed")]);
+	return new Text(output ? `${summary}\n\n${plainOutput(theme, output)}` : summary, 0, 0);
+}
+
+function summaryResult(
+	theme: RenderTheme,
+	summary: string,
+	body: string,
+	expanded: boolean,
+	lastComponent: unknown,
+): Text {
+	const component = lastComponent instanceof Text ? lastComponent : new Text("", 0, 0);
+	component.setText(expanded && body ? `${summary}\n\n${plainOutput(theme, body)}` : summary);
+	return component;
+}
+
+function resultDisplayDiff(details: unknown): string | undefined {
+	if (!details || typeof details !== "object") return undefined;
+	const diff = (details as { diff?: unknown }).diff;
+	return typeof diff === "string" ? diff : undefined;
+}
+
+function isTruncated(details: unknown): boolean {
+	if (!details || typeof details !== "object") return false;
+	const value = details as {
+		truncation?: { truncated?: boolean };
+		matchLimitReached?: number;
+		resultLimitReached?: number;
+		linesTruncated?: boolean;
+	};
+	return Boolean(
+		value.truncation?.truncated ||
+		value.matchLimitReached ||
+		value.resultLimitReached ||
+		value.linesTruncated,
+	);
 }
 
 function shikiThemeFor(theme: Pick<Theme, "name">): ShikiTheme {
@@ -258,6 +473,107 @@ function renderCodePreview(
 		text: highlighted.join("\n"),
 		remaining: Math.max(0, lines.length - visible.length),
 	};
+}
+
+function renderCompletedEdit(
+	box: Box,
+	path: string | undefined,
+	lines: DisplayDiffLine[],
+	language: SupportedLanguage,
+	expanded: boolean,
+	syntax: ExpressiveHighlighter,
+	theme: RenderTheme,
+	shikiTheme: ShikiTheme,
+): void {
+	box.clear();
+	box.addChild(new Text(
+		`${theme.fg("toolTitle", theme.bold("edit"))} ${theme.fg("accent", path ?? "")}`,
+		0,
+		0,
+	));
+	box.addChild(new Spacer(1));
+	box.addChild(new Text(
+		renderDisplayDiff(
+			syntax,
+			lines,
+			language,
+			expanded ? Number.POSITIVE_INFINITY : COLLAPSED_EDIT_LINES,
+			theme,
+			shikiTheme,
+		),
+		0,
+		0,
+	));
+}
+
+function renderDisplayDiff(
+	syntax: ExpressiveHighlighter,
+	lines: DisplayDiffLine[],
+	language: SupportedLanguage,
+	lineLimit: number,
+	theme: RenderTheme,
+	shikiTheme: ShikiTheme,
+): string {
+	const compact = Number.isFinite(lineLimit)
+		? compactDisplayDiff(lines, lineLimit)
+		: { lines, omittedChangedLines: 0 };
+	const lineNumberWidth = Math.max(
+		1,
+		...lines.flatMap((line) => line.lineNumber === undefined ? [] : [String(line.lineNumber).length]),
+	);
+	const displayLines = compact.lines.map((line) => ({
+		...line,
+		content: line.kind === "ellipsis" ? "" : replaceTabs(line.content),
+	}));
+	const highlighted = syntax.highlight(
+		displayLines.map((line) => line.content).join("\n"),
+		language,
+		shikiTheme,
+	);
+	const intraLineRanges = pairedIntraLineRanges(displayLines);
+	const diffBackgrounds = DIFF_LINE_BACKGROUNDS[shikiTheme];
+	const output = displayLines.map((line, index) => {
+		if (line.kind === "ellipsis") {
+			return theme.fg("muted", `${" ".repeat(lineNumberWidth)}  ⋮`);
+		}
+
+		const lineNumber = line.lineNumber === undefined
+			? " ".repeat(lineNumberWidth)
+			: String(line.lineNumber).padStart(lineNumberWidth, " ");
+		const gutter = theme.fg("muted", `${lineNumber} `);
+		const sign = line.kind === "add"
+			? theme.fg("success", theme.bold("+"))
+			: line.kind === "delete"
+				? theme.fg("error", theme.bold("-"))
+				: theme.fg("muted", " ");
+		const lineBackground = line.kind === "add"
+			? diffBackgrounds.addition
+			: line.kind === "delete"
+				? diffBackgrounds.deletion
+				: undefined;
+		const emphasisBackground = line.kind === "add"
+			? diffBackgrounds.additionEmphasis
+			: diffBackgrounds.deletionEmphasis;
+		const code = intraLineRanges.has(index) && lineBackground
+			? styleAnsiRanges(
+				highlighted[index] ?? line.content,
+				intraLineRanges.get(index)!,
+				`${emphasisBackground}${BOLD}`,
+				`${RESET_BOLD}${lineBackground}`,
+			)
+			: (highlighted[index] ?? line.content);
+		const rendered = `${gutter}${sign}${code}`;
+		return lineBackground ? `${lineBackground}${rendered}${RESET_BACKGROUND}` : rendered;
+	});
+
+	if (compact.omittedChangedLines > 0) {
+		const noun = compact.omittedChangedLines === 1 ? "line" : "lines";
+		output.push(
+			`${theme.fg("muted", `… ${compact.omittedChangedLines} more changed ${noun} · `)}` +
+			keyHint("app.tools.expand", "to expand"),
+		);
+	}
+	return output.join("\n");
 }
 
 function renderEdits(

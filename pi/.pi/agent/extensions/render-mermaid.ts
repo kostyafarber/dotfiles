@@ -70,13 +70,17 @@ export default function renderMermaidExtension(pi: ExtensionAPI): void {
 		name: "render_mermaid",
 		label: "Mermaid (ASCII)",
 		description:
-			"Render Mermaid source as a polished, terminal-width-aware ASCII diagram with a concise, topic-specific title. The source stays hidden and the diagram is always fully expanded.",
-		promptSnippet: "Before explaining a non-linear system in prose, render one focused terminal-friendly ASCII diagram when it will anchor the explanation.",
+			"Render Mermaid source as a polished, terminal-width-aware ASCII diagram with a concise, topic-specific title. Supports flowchart, state, sequence, class, ER, and XY diagrams. The source stays hidden and the diagram is always fully expanded.",
+		promptSnippet:
+			"Use the minimum number of focused diagrams needed to clarify relationships that prose handles poorly, choosing the Mermaid type by semantics rather than defaulting to flowcharts.",
 		promptGuidelines: [
-			"Before drafting an explanation, check whether the concept has branching paths, loops, parallel work, multiple actors or layers, state transitions, ownership boundaries, or non-obvious relationships. If one diagram would replace or anchor more than one paragraph, call render_mermaid first; do not wait for the user to request a diagram.",
+			"Before drafting an explanation, check whether the concept has branching paths, loops, parallel work, multiple actors or layers, state transitions, ownership boundaries, or non-obvious relationships. If a diagram would replace or anchor more than one paragraph, call render_mermaid first; do not wait for the user to request one.",
+			"Choose the diagram type by the question it answers: state for lifecycle and legal transitions; sequence for ordering, concurrency, or interactions across actors; class for inheritance, type structure, or simple unlabeled composition; ER for data relationships and cardinality; XY for quantitative trends or comparisons; flowchart for branching workflows, component topology, or labeled ownership, data, and control flows.",
+			"For terminal rendering, avoid class aliases such as class Foo[\"Label\"] and labeled class relations; use direct class names with unlabeled relations, or a flowchart when relationship labels are essential.",
+			"Use the minimum number of diagrams needed. Keep one concept per diagram; one focused diagram is usually enough, and multiple diagrams should each answer a distinct question that prose cannot express as clearly.",
+			"For specifications, use diagrams selectively to reinforce structural, sequential, spatial, or state relationships, while keeping normative rules complete in the surrounding prose.",
 			"Give every render_mermaid call a concise, topic-specific title that says what the diagram explains; never use a generic title such as 'Mermaid' or 'Diagram'.",
-			"Remain selective: do not diagram simple lists, short linear flows, or ideas that are clearer in a few sentences. Every diagram should answer a concrete structural question, and one focused diagram is usually enough.",
-			"Prefer a compact top-to-bottom layout unless a left-to-right layout will fit comfortably in a terminal.",
+			"Keep labels, entities, and participants to the minimum needed for terminal legibility. Prefer a compact top-to-bottom layout unless a left-to-right layout will fit comfortably.",
 			"Do not include a fenced Mermaid block or repeat the ASCII diagram in the response; the tool result is the visible diagram.",
 		],
 		parameters: Type.Object({
@@ -84,7 +88,8 @@ export default function renderMermaidExtension(pi: ExtensionAPI): void {
 				description: "Concise, topic-specific diagram title, usually 2–8 words.",
 			}),
 			source: Type.String({
-				description: "Mermaid diagram source, including its graph/flowchart/sequence/class/ER/state declaration.",
+				description:
+					"Mermaid diagram source with a flowchart, stateDiagram-v2, sequenceDiagram, classDiagram, erDiagram, or xychart-beta declaration chosen to match the relationship being explained.",
 			}),
 		}),
 

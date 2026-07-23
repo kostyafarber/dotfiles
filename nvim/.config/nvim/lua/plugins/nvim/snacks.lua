@@ -189,11 +189,25 @@ return {
         { "<leader>fd", function() Snacks.picker.diagnostics_buffer() end, desc = "Diagnostics (buffer)" },
         { "<leader>fD", function() Snacks.picker.diagnostics() end,        desc = "Diagnostics (workspace)" },
 
+        { "<leader>lr", "<cmd>Lazy reload snacks.nvim<cr>", desc = "Reload Snacks config" },
+
         { "<leader>gg", function() Snacks.lazygit() end,                desc = "Lazygit" },
         { "<leader>gB", function() Snacks.gitbrowse() end,              desc = "Git browse (open in browser)" },
         { "<leader>gb", function() Snacks.git.blame_line() end,         desc = "Git blame line" },
         { "<leader>gl", function() Snacks.picker.git_log() end,         desc = "Git log" },
         { "<leader>gs", function() Snacks.picker.git_status() end,      desc = "Git status" },
+        { "<leader>gk", function()
+            local root = Snacks.git.get_root() or vim.fn.getcwd()
+            local command = { "hunk", "diff", "--watch" }
+            local merge_base = vim.system(
+                { "git", "merge-base", "HEAD", "origin/main" },
+                { cwd = root, text = true }
+            ):wait()
+            if merge_base.code == 0 and vim.trim(merge_base.stdout) ~= "" then
+                command = { "hunk", "diff", vim.trim(merge_base.stdout), "--watch" }
+            end
+            Snacks.terminal.toggle(command, { cwd = root })
+        end, desc = "Hunk branch diff (watch)" },
 
         { "<leader>nh", function() Snacks.notifier.show_history() end,  desc = "Notification history" },
         { "<leader>e",  function() Snacks.explorer() end,               desc = "Explorer" },

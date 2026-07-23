@@ -59,25 +59,41 @@ function statusInsertionIndex(line: string): number {
 	return insertionIndex
 }
 
-function addSuccessCheck(line: string, width: number, theme: Theme): string {
+function addStateMarker(
+	line: string,
+	width: number,
+	theme: Theme,
+	state: 'running' | 'success' | 'error'
+): string {
 	const insertionIndex = statusInsertionIndex(line)
-	const check = `${theme.fg('success', theme.bold('●'))} `
-	const decorated = `${line.slice(0, insertionIndex)}${check}${line.slice(insertionIndex)}`
+	const marker = state === 'running'
+		? theme.fg('accent', theme.bold('◇'))
+		: state === 'error'
+			? theme.fg('error', theme.bold('×'))
+			: theme.fg('success', theme.bold('◆'))
+	const decorated = `${line.slice(0, insertionIndex)}${marker} ${line.slice(insertionIndex)}`
 	return visibleWidth(decorated) > width ? truncateToWidth(decorated, width, '') : decorated
 }
 
-const renderWithSuccessCheck: RenderToolExecution = function (width) {
+const renderWithStateMarker: RenderToolExecution = function (width) {
 	const lines = originalRender.call(this, width)
 	const runtime = this as unknown as ToolExecutionRuntime
-	if (!activeTheme || runtime.isPartial || !runtime.result || runtime.result.isError) return lines
+	if (!activeTheme) return lines
 
+	const state = runtime.result?.isError
+		? 'error'
+		: runtime.isPartial || !runtime.result
+			? 'running'
+			: 'success'
 	const titleLine = lines.findIndex(hasVisibleContent)
-	if (titleLine >= 0) lines[titleLine] = addSuccessCheck(lines[titleLine]!, width, activeTheme)
+	if (titleLine >= 0) {
+		lines[titleLine] = addStateMarker(lines[titleLine]!, width, activeTheme, state)
+	}
 	return lines
 }
 
 export default function toolSuccessChecksExtension(pi: ExtensionAPI): void {
-	ToolExecutionComponent.prototype.render = renderWithSuccessCheck
+	ToolExecutionComponent.prototype.render = renderWithStateMarker
 
 	pi.on('session_start', (_event, ctx) => {
 		activeTheme = ctx.ui.theme
@@ -85,7 +101,7 @@ export default function toolSuccessChecksExtension(pi: ExtensionAPI): void {
 
 	pi.on('session_shutdown', () => {
 		activeTheme = undefined
-		if (ToolExecutionComponent.prototype.render === renderWithSuccessCheck) {
+		if (ToolExecutionComponent.prototype.render === renderWithStateMarker) {
 			ToolExecutionComponent.prototype.render = originalRender
 		}
 	})

@@ -20,9 +20,17 @@ const MODE_DESIGN_ACTION = "collaboration-mode.design";
 const MODE_IMPLEMENT_ACTION = "collaboration-mode.implement";
 const MUTATING_TOOLS = new Set(["edit", "write"]);
 
+const BUG_FEEDBACK_INSTRUCTIONS = `Whenever new bug, regression, test failure, or review evidence appears, perform a lightweight recurrence check: identify the expected truth it violated and compare it with earlier evidence in the current work. Keep this check implicit and continue normally for an isolated defect.
+
+Before applying another local patch, pause implementation and discuss the shared model when a core assumption is disproved, two related failures share an invariant, a problem recurs after a fix, one fix exposes another failure at the same boundary, or the user signals recurring confusion. Summarize the evidence, suspected invariant, and any mismatch between the current design's assumptions and the human or product expectation. Do not escalate based on a raw bug count or inspect unrelated history by default; use the current conversation and active change first, then inspect only narrowly relevant review threads, tests, or recent history when needed.`;
+
 const DESIGN_INSTRUCTIONS = `You are in Design mode. Do not edit project files, configuration, or external systems. Inspect the existing system and work conversationally with me until the change has an implementable shape.
 
-Sketch concrete types, API signatures, representative call sites, data flow, ownership, lifecycle, invalidation, failure semantics, and a loose file-by-file diff. Scale the depth to the change and omit categories that do not apply. Challenge unnecessary abstractions and ensure the design fits the existing system.
+Start by identifying the system's invariants: the truths that must remain true across every supported operation and transition. For each important invariant, name its owner, the boundary that enforces it, what could violate it, and how it will be verified. Prefer types, APIs, state machines, and ownership boundaries that make violations unrepresentable. Explicitly flag invariants that still rely on caller discipline, operation ordering, or remembered cleanup.
+
+When repeated evidence prompted the design discussion, group the symptoms by invariant, surface the assumptions made by the current design and the expectations implied by the human or product, and resolve any disagreement before selecting another fix.
+
+Sketch concrete types, API signatures, representative call sites, data flow, ownership, lifecycle, invalidation, failure semantics, and a loose file-by-file diff. Stress the design against relevant failure, cancellation, retry, concurrency, reentrancy, and shutdown scenarios. Scale the depth to the change and omit categories that do not apply. Challenge unnecessary abstractions and ensure the design fits the existing system.
 
 Label agreed decisions, open questions, and deferred work. Repository-specific architectural principles remain in AGENTS.md, skills, and architecture documentation.
 
@@ -227,8 +235,10 @@ export default function collaborationModesExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("before_agent_start", (event) => {
-		if (activeMode !== "design") return;
-		return { systemPrompt: `${event.systemPrompt}\n\n${DESIGN_INSTRUCTIONS}` };
+		const instructions = activeMode === "design"
+			? `${BUG_FEEDBACK_INSTRUCTIONS}\n\n${DESIGN_INSTRUCTIONS}`
+			: BUG_FEEDBACK_INSTRUCTIONS;
+		return { systemPrompt: `${event.systemPrompt}\n\n${instructions}` };
 	});
 
 	pi.on("session_shutdown", () => {
