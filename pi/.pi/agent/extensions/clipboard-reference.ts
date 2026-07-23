@@ -10,6 +10,7 @@ import type { ImageContent } from '@earendil-works/pi-ai'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import {
 	Container,
+	matchesKey,
 	SelectList,
 	Text,
 	truncateToWidth,
@@ -21,6 +22,7 @@ import {
 	type SelectItem,
 } from '@earendil-works/pi-tui'
 import { ImageGallery } from './image-attachments/src/image-gallery.ts'
+import { appendDraftItems, draftForAttachmentCommand } from './lib/editor-draft.ts'
 
 const LATEST_IMAGE_TOKEN = '@clipboard-image'
 const CURRENT_TOKEN = '@clipboard'
@@ -391,19 +393,20 @@ async function getCandidateBytes(candidate: ClipboardCandidate): Promise<Uint8Ar
 async function showClipboardViewer(
 	ctx: Parameters<Parameters<ExtensionAPI['registerCommand']>[1]['handler']>[1],
 	nativeClipboard: NativeClipboard | null
-): Promise<ClipboardCandidate | null> {
+): Promise<ClipboardCandidate[] | null> {
 	const candidates = await loadClipboardCandidates(nativeClipboard)
 	if (candidates.length === 0) {
 		ctx.ui.notify('No clipboard images found.', 'warning')
 		return null
 	}
 
-	return ctx.ui.custom<ClipboardCandidate | null>((tui, theme, _keybindings, done) => {
+	return ctx.ui.custom<ClipboardCandidate[] | null>((tui, theme, _keybindings, done) => {
 		const left = new Container()
 		const right = new Container()
+		const selectedCandidates = new Map<string, ClipboardCandidate>()
 		const items: SelectItem[] = candidates.map((candidate) => ({
 			value: candidate.id,
-			label: candidate.label,
+			label: `○ ${candidate.label}`,
 			description: candidate.description,
 		}))
 		const list = new SelectList(items, Math.min(items.length, 16), {
@@ -413,9 +416,16 @@ async function showClipboardViewer(
 			scrollInfo: (text) => theme.fg('dim', text),
 			noMatch: (text) => theme.fg('warning', text),
 		})
-		left.addChild(new Text(theme.fg('accent', theme.bold('Clipboard images')), 1, 0))
+		const header = new Text(theme.fg('accent', theme.bold('Clipboard images')), 1, 0)
+		left.addChild(header)
 		left.addChild(list)
-		left.addChild(new Text(theme.fg('dim', '↑↓ browse · enter attach · esc cancel'), 1, 0))
+		left.addChild(
+			new Text(
+				theme.fg('dim', '↑↓ browse · Space/Tab select · Enter attach selected · Esc cancel'),
+				1,
+				0
+			)
+		)
 
 		let selected = candidates[0]
 		let preview: { candidateId: string; base64: string } | undefined
@@ -427,6 +437,24 @@ async function showClipboardViewer(
 		const disposeGallery = () => {
 			gallery?.dispose()
 			gallery = null
+		}
+
+		const refreshSelectionDisplay = () => {
+			for (const item of items) {
+				const candidate = candidates.find((entry) => entry.id === item.value)
+				if (!candidate) continue
+				item.label = `${selectedCandidates.has(candidate.id) ? '✓' : '○'} ${candidate.label}`
+			}
+			const suffix = selectedCandidates.size > 0 ? ` · ${selectedCandidates.size} selected` : ''
+			header.setText(theme.fg('accent', theme.bold(`Clipboard images${suffix}`)))
+			list.invalidate()
+		}
+
+		const toggleSelected = () => {
+			if (selectedCandidates.has(selected.id)) selectedCandidates.delete(selected.id)
+			else selectedCandidates.set(selected.id, selected)
+			refreshSelectionDisplay()
+			tui.requestRender()
 		}
 
 		const rebuildRight = () => {
@@ -487,7 +515,8 @@ async function showClipboardViewer(
 		list.onSelect = (item) => {
 			disposeGallery()
 			const candidate = candidates.find((entry) => entry.id === item.value)
-			done(candidate ?? null)
+			const selectedItems = [...selectedCandidates.values()]
+			done(selectedItems.length > 0 ? selectedItems : candidate ? [candidate] : null)
 		}
 		list.onCancel = () => {
 			disposeGallery()
@@ -499,6 +528,10 @@ async function showClipboardViewer(
 			render: (width) => split.render(width),
 			invalidate: () => split.invalidate(),
 			handleInput: (data) => {
+				if (matchesKey(data, 'space') || matchesKey(data, 'tab')) {
+					toggleSelected()
+					return
+				}
 				list.handleInput(data)
 				tui.requestRender()
 			},
@@ -574,35 +607,41 @@ export default function (pi: ExtensionAPI) {
 
 	pi.registerCommand('clipboard', {
 		description: 'Browse current and recent Raycast clipboard images, preview one, and attach it',
-		handler: async (_args, ctx) => {
+		handler: async (args, ctx) => {
 			if (ctx.mode !== 'tui') {
 				ctx.ui.notify('Clipboard viewer is available only in interactive mode.', 'warning')
 				return
 			}
 			const selected = await showClipboardViewer(ctx, nativeClipboard)
-			if (!selected) return
+			if (!selected || selected.length === 0) return
 
-			try {
-				const bytes = await getCandidateBytes(selected)
-				if (bytes.byteLength > MAX_IMAGE_BYTES) {
+			const paths: string[] = []
+			for (const candidate of selected) {
+				try {
+					const bytes = await getCandidateBytes(candidate)
+					if (bytes.byteLength > MAX_IMAGE_BYTES) {
+						ctx.ui.notify(
+							`${candidate.label} is too large (${formatBytes(bytes.byteLength)}; max ${formatBytes(MAX_IMAGE_BYTES)}).`,
+							'warning'
+						)
+						continue
+					}
+					paths.push(editorPath(await materializeCandidatePath(candidate)))
+				} catch (error) {
 					ctx.ui.notify(
-						`Clipboard image is too large (${formatBytes(bytes.byteLength)}; max ${formatBytes(MAX_IMAGE_BYTES)}).`,
-						'warning'
+						error instanceof Error ? error.message : `Unable to attach ${candidate.label}`,
+						'error'
 					)
-					return
 				}
-				const path = editorPath(await materializeCandidatePath(selected))
-				const existing = ctx.ui.getEditorText().trim()
-				const editorText =
-					existing && existing !== '/clipboard' ? `${existing} ${path}` : `${path} `
-				ctx.ui.setEditorText(editorText)
-				ctx.ui.notify('Image selected. Add your prompt and press Enter.', 'info')
-			} catch (error) {
-				ctx.ui.notify(
-					error instanceof Error ? error.message : 'Unable to attach clipboard image',
-					'error'
-				)
 			}
+			if (paths.length === 0) return
+
+			const draft = draftForAttachmentCommand(ctx.ui.getEditorText(), args, 'clipboard')
+			ctx.ui.setEditorText(appendDraftItems(draft, paths))
+			ctx.ui.notify(
+				`${paths.length} clipboard image${paths.length === 1 ? '' : 's'} added. Add your prompt and press Enter.`,
+				'info'
+			)
 		},
 	})
 

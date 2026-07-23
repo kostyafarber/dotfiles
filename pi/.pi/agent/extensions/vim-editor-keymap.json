@@ -62,6 +62,12 @@
       "action": "app.thinking.cycle"
     },
     {
+      "key": "x",
+      "label": "Preview attachment",
+      "description": "Toggle the image, PR, issue, or other media under the cursor",
+      "editorAction": "preview-media"
+    },
+    {
       "key": "p",
       "label": "Command palette",
       "description": "Search built-ins, extensions, prompts, and skills",

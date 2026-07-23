@@ -8,6 +8,12 @@ import type { ImageContent } from './content.ts'
 import { debugLog } from './debug.ts'
 import { ImageGallery } from './image-gallery.ts'
 import { upgradeScreenshotToolResult } from './tool-result-upgrader.ts'
+import {
+	DRAFT_MEDIA_ACTIVATE_CHANNEL,
+	DRAFT_MEDIA_COLLECT_CHANNEL,
+	isDraftMediaActivateRequest,
+	isDraftMediaCollectRequest,
+} from '../../lib/draft-media.ts'
 
 export type ExtensionDeps = {
 	readImageContentFromPathAsync: (filePath: string) => Promise<ImageContent | null>
@@ -54,9 +60,6 @@ const DEFAULT_KNOWN_SLASH_COMMANDS = [
 	'resume',
 	'reload',
 	'quit',
-	'image-preview',
-	'image-next',
-	'image-prev',
 ]
 const IMAGE_PATH_RE = /((?:~\/|\.\.?\/|\/)(?:\\ |[^\s:*?"<>|])+\.(?:png|jpe?g|gif|webp))(?=\s|$)/gi
 
@@ -139,6 +142,7 @@ function createInlineSlashAutocompleteProvider(
 
 export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionDeps): void {
 	let tracked = new Map<string, TrackedImage>()
+	let activePlaceholders = new Set<string>()
 	let nextImageNumber = 1
 	let expanded = false
 	let selectedIndex = 0
@@ -152,8 +156,10 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 	const pendingImages = new Map<string, Promise<void>>()
 	const knownSlashCommands = new Set(DEFAULT_KNOWN_SLASH_COMMANDS)
 
-	const entries = () =>
+	const allEntries = () =>
 		[...tracked.values()].sort((a, b) => imageNumber(a.placeholder) - imageNumber(b.placeholder))
+	const entries = () =>
+		allEntries().filter((entry) => activePlaceholders.has(entry.placeholder))
 
 	const disposeGallery = () => {
 		gallery?.dispose()
@@ -208,10 +214,7 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 				container.addChild(gallery)
 				container.addChild(
 					new Text(
-						theme.fg(
-							'dim',
-							'Ctrl+Shift+← previous · Ctrl+Shift+→ next · Ctrl+Shift+I close · /image-preview toggles'
-						),
+						theme.fg('dim', '[m previous · ]m next · <leader>x close'),
 						1,
 						0
 					)
@@ -226,31 +229,12 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 		draftGeneration++
 		executingInlineCommand = false
 		tracked = new Map()
+		activePlaceholders = new Set()
 		pendingImages.clear()
 		nextImageNumber = 1
 		expanded = false
 		selectedIndex = 0
 		clearPreviewWidget(ctx)
-	}
-
-	const toggleExpanded = (ctx: ExtensionContext) => {
-		if (tracked.size === 0) {
-			ctx.ui.notify('No draft images to preview.', 'warning')
-			return
-		}
-		expanded = !expanded
-		refreshWidget(ctx)
-	}
-
-	const cycleImage = (ctx: ExtensionContext, direction: 1 | -1) => {
-		const count = tracked.size
-		if (count === 0) {
-			ctx.ui.notify('No draft images to preview.', 'warning')
-			return
-		}
-		selectedIndex = (selectedIndex + direction + count) % count
-		expanded = true
-		refreshWidget(ctx)
 	}
 
 	const scanEditorText = async (ctx: ExtensionContext) => {
@@ -295,18 +279,20 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 			}
 		}
 
-		if (!executingInlineCommand) {
-			for (const [placeholder] of tracked) {
-				if (!nextText.includes(placeholder)) {
-					tracked.delete(placeholder)
-					changed = true
-				}
-			}
+		const nextActivePlaceholders = new Set(
+			[...tracked.keys()].filter((placeholder) => nextText.includes(placeholder))
+		)
+		if (
+			nextActivePlaceholders.size !== activePlaceholders.size ||
+			[...nextActivePlaceholders].some((placeholder) => !activePlaceholders.has(placeholder))
+		) {
+			changed = true
 		}
+		activePlaceholders = nextActivePlaceholders
 
 		if (nextText !== text) ctx.ui.setEditorText(nextText)
 		if (changed) {
-			selectedIndex = Math.max(0, Math.min(selectedIndex, tracked.size - 1))
+			selectedIndex = Math.max(0, Math.min(selectedIndex, entries().length - 1))
 			refreshWidget(ctx)
 		}
 	}
@@ -330,6 +316,7 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 
 		const entry: TrackedImage = { filePath, image, label: placeholder, placeholder }
 		tracked.set(placeholder, entry)
+		activePlaceholders.add(placeholder)
 		refreshWidget(ctx)
 
 		if (deps.maybeResizeImage) {
@@ -455,29 +442,39 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 		pollTimer.unref?.()
 	}
 
-	pi.registerCommand('image-preview', {
-		description: 'Expand or collapse the selected draft image below the editor',
-		handler: async (_args, ctx) => toggleExpanded(ctx),
+	const offMediaCollect = pi.events.on(DRAFT_MEDIA_COLLECT_CHANNEL, (value) => {
+		if (!isDraftMediaCollectRequest(value)) return
+		for (const match of value.text.matchAll(/\[Image \d+]/g)) {
+			const placeholder = match[0]
+			if (!placeholder || !tracked.has(placeholder) || match.index === undefined) continue
+			value.items.push({
+				provider: 'image',
+				id: placeholder,
+				label: placeholder,
+				start: match.index,
+				end: match.index + placeholder.length,
+			})
+		}
 	})
-	pi.registerCommand('image-next', {
-		description: 'Show the next draft image in the expanded preview',
-		handler: async (_args, ctx) => cycleImage(ctx, 1),
-	})
-	pi.registerCommand('image-prev', {
-		description: 'Show the previous draft image in the expanded preview',
-		handler: async (_args, ctx) => cycleImage(ctx, -1),
-	})
-	pi.registerShortcut('ctrl+shift+i', {
-		description: 'Toggle draft image preview',
-		handler: async (ctx) => toggleExpanded(ctx),
-	})
-	pi.registerShortcut('ctrl+shift+right', {
-		description: 'Preview next draft image',
-		handler: async (ctx) => cycleImage(ctx, 1),
-	})
-	pi.registerShortcut('ctrl+shift+left', {
-		description: 'Preview previous draft image',
-		handler: async (ctx) => cycleImage(ctx, -1),
+
+	const offMediaActivate = pi.events.on(DRAFT_MEDIA_ACTIVATE_CHANNEL, (value) => {
+		if (!latestCtx || !isDraftMediaActivateRequest(value)) return
+		if (value.item.provider !== 'image') {
+			if (expanded) {
+				expanded = false
+				refreshWidget(latestCtx)
+			}
+			return
+		}
+
+		const images = entries()
+		const index = images.findIndex((image) => image.placeholder === value.item.id)
+		if (index < 0) return
+		const isCurrent = expanded && selectedIndex === index
+		selectedIndex = index
+		expanded = value.toggle && isCurrent ? false : true
+		value.handled = true
+		refreshWidget(latestCtx)
 	})
 
 	pi.on('session_start', async (_event, ctx) => {
@@ -505,6 +502,8 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 		latestCtx = null
 		scanInFlight = false
 		executingInlineCommand = false
+		offMediaCollect()
+		offMediaActivate()
 	})
 
 	pi.on('tool_result', async (event, ctx) => {
@@ -517,29 +516,12 @@ export function registerImagePreviewExtension(pi: ExtensionAPI, deps: ExtensionD
 		if (pendingImages.size > 0) {
 			await Promise.allSettled([...pendingImages.values()])
 		}
-		const inlineControl = event.text.match(/(?:^|\s)\/(image-preview|image-next|image-prev)\s*$/)
-		if (inlineControl?.index !== undefined) {
-			const draft = event.text.slice(0, inlineControl.index).trimEnd()
-			ctx.ui.setEditorText(draft)
-			switch (inlineControl[1]) {
-				case 'image-next':
-					cycleImage(ctx, 1)
-					break
-				case 'image-prev':
-					cycleImage(ctx, -1)
-					break
-				default:
-					toggleExpanded(ctx)
-			}
-			return { action: 'handled' }
-		}
-
 		if (tracked.size === 0) return { action: 'continue' }
 
 		const fullText = (event.text || '').trim()
 		if (fullText.startsWith('/') || fullText.startsWith('!')) return { action: 'continue' }
 
-		const used = entries()
+		const used = allEntries()
 			.filter((entry) => fullText.includes(entry.placeholder))
 			.sort((a, b) => fullText.indexOf(a.placeholder) - fullText.indexOf(b.placeholder))
 		if (used.length === 0) return { action: 'continue' }

@@ -14,18 +14,20 @@ import {
 } from './lib/github-reference.ts'
 import { appendDraftItems, draftForAttachmentCommand } from './lib/editor-draft.ts'
 
-const MAX_ISSUES = 100
-const MAX_VISIBLE_ISSUES = 12
+const MAX_PULL_REQUESTS = 100
+const MAX_VISIBLE_PULL_REQUESTS = 12
 const GH_TIMEOUT_MS = 15_000
 const SEARCH_DEBOUNCE_MS = 300
 
-type GitHubIssue = {
+type GitHubPullRequest = {
 	number: number
 	title: string
 	url: string
 	updatedAt: string
 	labels: Array<{ name: string }>
-	assignees: Array<{ login: string }>
+	author: { login: string } | null
+	isDraft: boolean
+	reviewDecision: string
 }
 
 type RepoResolution = { ok: true; repo: string } | { ok: false; error: string }
@@ -37,38 +39,42 @@ function cleanText(value: string): string {
 		.trim()
 }
 
-function parseIssues(stdout: string): GitHubIssue[] {
+function parsePullRequests(stdout: string): GitHubPullRequest[] {
 	const value: unknown = JSON.parse(stdout)
-	if (!Array.isArray(value)) throw new Error('Expected an array from gh issue list')
+	if (!Array.isArray(value)) throw new Error('Expected an array from gh pr list')
 
 	return value.map((item) => {
 		if (
 			typeof item !== 'object' ||
 			item === null ||
-			typeof (item as GitHubIssue).number !== 'number' ||
-			typeof (item as GitHubIssue).title !== 'string' ||
-			typeof (item as GitHubIssue).url !== 'string' ||
-			typeof (item as GitHubIssue).updatedAt !== 'string'
+			typeof (item as GitHubPullRequest).number !== 'number' ||
+			typeof (item as GitHubPullRequest).title !== 'string' ||
+			typeof (item as GitHubPullRequest).url !== 'string' ||
+			typeof (item as GitHubPullRequest).updatedAt !== 'string'
 		) {
-			throw new Error('Unexpected issue data from gh issue list')
+			throw new Error('Unexpected pull request data from gh pr list')
 		}
 
-		const issue = item as GitHubIssue
+		const pullRequest = item as GitHubPullRequest
 		return {
-			number: issue.number,
-			title: cleanText(issue.title),
-			url: issue.url,
-			updatedAt: issue.updatedAt,
-			labels: Array.isArray(issue.labels)
-				? issue.labels
+			number: pullRequest.number,
+			title: cleanText(pullRequest.title),
+			url: pullRequest.url,
+			updatedAt: pullRequest.updatedAt,
+			labels: Array.isArray(pullRequest.labels)
+				? pullRequest.labels
 						.filter((label) => label && typeof label.name === 'string')
 						.map((label) => ({ name: cleanText(label.name) }))
 				: [],
-			assignees: Array.isArray(issue.assignees)
-				? issue.assignees
-						.filter((assignee) => assignee && typeof assignee.login === 'string')
-						.map((assignee) => ({ login: cleanText(assignee.login) }))
-				: [],
+			author:
+				pullRequest.author && typeof pullRequest.author.login === 'string'
+					? { login: cleanText(pullRequest.author.login) }
+					: null,
+			isDraft: pullRequest.isDraft === true,
+			reviewDecision:
+				typeof pullRequest.reviewDecision === 'string'
+					? cleanText(pullRequest.reviewDecision)
+					: '',
 		}
 	})
 }
@@ -96,17 +102,23 @@ async function resolveRepo(pi: ExtensionAPI, cwd: string): Promise<RepoResolutio
 	return { ok: true, repo }
 }
 
-function filterIssues(issues: GitHubIssue[], query: string): GitHubIssue[] {
+function filterPullRequests(
+	pullRequests: GitHubPullRequest[],
+	query: string
+): GitHubPullRequest[] {
 	const terms = query.toLowerCase().split(/\s+/).filter(Boolean)
-	if (terms.length === 0) return issues
+	if (terms.length === 0) return pullRequests
 
-	return issues.filter((issue) => {
+	return pullRequests.filter((pullRequest) => {
 		const searchable = [
-			String(issue.number),
-			issue.title,
-			...issue.labels.map((label) => label.name),
-			...issue.assignees.map((assignee) => assignee.login),
+			String(pullRequest.number),
+			pullRequest.title,
+			...pullRequest.labels.map((label) => label.name),
+			pullRequest.author?.login,
+			pullRequest.isDraft ? 'draft' : undefined,
+			pullRequest.reviewDecision,
 		]
+			.filter(Boolean)
 			.join(' ')
 			.toLowerCase()
 		return terms.every((term) => searchable.includes(term))
@@ -130,19 +142,32 @@ function relativeTime(value: string): string {
 	return `${Math.floor(months / 12)}y`
 }
 
-class GitHubIssuesComponent implements Focusable {
+function formatReviewDecision(value: string): string | undefined {
+	switch (value) {
+		case 'APPROVED':
+			return 'approved'
+		case 'CHANGES_REQUESTED':
+			return 'changes requested'
+		case 'REVIEW_REQUIRED':
+			return 'review required'
+		default:
+			return undefined
+	}
+}
+
+class GitHubPullRequestsComponent implements Focusable {
 	focused = false
 
-	private allIssues: GitHubIssue[] = []
-	private issues: GitHubIssue[] = []
+	private allPullRequests: GitHubPullRequest[] = []
+	private pullRequests: GitHubPullRequest[] = []
 	private selected = 0
 	private scrollOffset = 0
-	private selectedIssues = new Map<number, GitHubIssue>()
+	private selectedPullRequests = new Map<number, GitHubPullRequest>()
 	private searchMode = false
 	private query = ''
 	private loading = true
 	private error: string | undefined
-	private openingIssue: number | undefined
+	private openingPullRequest: number | undefined
 	private requestId = 0
 	private searchTimer: ReturnType<typeof setTimeout> | undefined
 	private disposed = false
@@ -153,28 +178,28 @@ class GitHubIssuesComponent implements Focusable {
 		private readonly pi: ExtensionAPI,
 		private readonly cwd: string,
 		private readonly repo: string,
-		private readonly done: (issues: GitHubIssue[] | undefined) => void
+		private readonly done: (pullRequests: GitHubPullRequest[] | undefined) => void
 	) {
-		void this.loadIssues('')
+		void this.loadPullRequests('')
 	}
 
-	private async loadIssues(query: string): Promise<void> {
+	private async loadPullRequests(query: string): Promise<void> {
 		const requestId = ++this.requestId
 		this.loading = true
 		this.error = undefined
 		this.tui.requestRender()
 
 		const args = [
-			'issue',
+			'pr',
 			'list',
 			'--repo',
 			this.repo,
 			'--state',
 			'open',
 			'--limit',
-			String(MAX_ISSUES),
+			String(MAX_PULL_REQUESTS),
 			'--json',
-			'number,title,url,updatedAt,labels,assignees',
+			'number,title,url,updatedAt,labels,author,isDraft,reviewDecision',
 		]
 		if (query) args.push('--search', query)
 
@@ -183,46 +208,46 @@ class GitHubIssuesComponent implements Focusable {
 
 		this.loading = false
 		if (result.code !== 0) {
-			this.error = cleanText(result.stderr) || `gh issue list exited with code ${result.code}`
+			this.error = cleanText(result.stderr) || `gh pr list exited with code ${result.code}`
 			this.tui.requestRender()
 			return
 		}
 
 		try {
-			const issues = parseIssues(result.stdout)
-			if (!query) this.allIssues = issues
-			this.issues = issues
+			const pullRequests = parsePullRequests(result.stdout)
+			if (!query) this.allPullRequests = pullRequests
+			this.pullRequests = pullRequests
 			this.query = query
 			this.selected = 0
 			this.scrollOffset = 0
 		} catch (error) {
-			this.error = error instanceof Error ? error.message : 'Unable to parse issues'
+			this.error = error instanceof Error ? error.message : 'Unable to parse pull requests'
 		}
 		this.tui.requestRender()
 	}
 
-	private selectedIssue(): GitHubIssue | undefined {
-		return this.issues[this.selected]
+	private selectedPullRequest(): GitHubPullRequest | undefined {
+		return this.pullRequests[this.selected]
 	}
 
-	private toggleSelectedIssue(): void {
-		const issue = this.selectedIssue()
-		if (!issue) return
-		if (this.selectedIssues.has(issue.number)) {
-			this.selectedIssues.delete(issue.number)
+	private toggleSelectedPullRequest(): void {
+		const pullRequest = this.selectedPullRequest()
+		if (!pullRequest) return
+		if (this.selectedPullRequests.has(pullRequest.number)) {
+			this.selectedPullRequests.delete(pullRequest.number)
 		} else {
-			this.selectedIssues.set(issue.number, issue)
+			this.selectedPullRequests.set(pullRequest.number, pullRequest)
 		}
 	}
 
 	private confirmSelection(): void {
-		const selected = [...this.selectedIssues.values()]
+		const selected = [...this.selectedPullRequests.values()]
 		if (selected.length > 0) {
 			this.done(selected)
 			return
 		}
-		const issue = this.selectedIssue()
-		if (issue) this.done([issue])
+		const pullRequest = this.selectedPullRequest()
+		if (pullRequest) this.done([pullRequest])
 	}
 
 	private updateSearch(query: string): void {
@@ -235,15 +260,15 @@ class GitHubIssuesComponent implements Focusable {
 		this.searchTimer = undefined
 
 		const trimmedQuery = query.trim()
-		const issuePool = [...this.issues, ...this.allIssues].filter(
-			(issue, index, issues) =>
-				issues.findIndex((candidate) => candidate.number === issue.number) === index
+		const pullRequestPool = [...this.pullRequests, ...this.allPullRequests].filter(
+			(pullRequest, index, pullRequests) =>
+				pullRequests.findIndex((candidate) => candidate.number === pullRequest.number) === index
 		)
-		this.issues = filterIssues(issuePool, trimmedQuery)
+		this.pullRequests = filterPullRequests(pullRequestPool, trimmedQuery)
 
 		if (!trimmedQuery) {
 			this.loading = false
-			this.issues = this.allIssues
+			this.pullRequests = this.allPullRequests
 			this.tui.requestRender()
 			return
 		}
@@ -251,37 +276,40 @@ class GitHubIssuesComponent implements Focusable {
 		this.loading = true
 		this.searchTimer = setTimeout(() => {
 			this.searchTimer = undefined
-			void this.loadIssues(trimmedQuery)
+			void this.loadPullRequests(trimmedQuery)
 		}, SEARCH_DEBOUNCE_MS)
 		this.tui.requestRender()
 	}
 
 	private moveSelection(delta: number): void {
-		if (this.issues.length === 0) return
-		this.selected = Math.max(0, Math.min(this.issues.length - 1, this.selected + delta))
+		if (this.pullRequests.length === 0) return
+		this.selected = Math.max(
+			0,
+			Math.min(this.pullRequests.length - 1, this.selected + delta)
+		)
 		if (this.selected < this.scrollOffset) this.scrollOffset = this.selected
-		if (this.selected >= this.scrollOffset + MAX_VISIBLE_ISSUES) {
-			this.scrollOffset = this.selected - MAX_VISIBLE_ISSUES + 1
+		if (this.selected >= this.scrollOffset + MAX_VISIBLE_PULL_REQUESTS) {
+			this.scrollOffset = this.selected - MAX_VISIBLE_PULL_REQUESTS + 1
 		}
 	}
 
-	private async openSelectedIssue(): Promise<void> {
-		const issue = this.selectedIssue()
-		if (!issue || this.openingIssue !== undefined) return
+	private async openSelectedPullRequest(): Promise<void> {
+		const pullRequest = this.selectedPullRequest()
+		if (!pullRequest || this.openingPullRequest !== undefined) return
 
-		this.openingIssue = issue.number
+		this.openingPullRequest = pullRequest.number
 		this.error = undefined
 		this.tui.requestRender()
 		const result = await this.pi.exec(
 			'gh',
-			['issue', 'view', String(issue.number), '--repo', this.repo, '--web'],
+			['pr', 'view', String(pullRequest.number), '--repo', this.repo, '--web'],
 			{ cwd: this.cwd, timeout: GH_TIMEOUT_MS }
 		)
 		if (this.disposed) return
 
-		this.openingIssue = undefined
+		this.openingPullRequest = undefined
 		if (result.code !== 0) {
-			this.error = cleanText(result.stderr) || `Unable to open #${issue.number}`
+			this.error = cleanText(result.stderr) || `Unable to open #${pullRequest.number}`
 		}
 		this.tui.requestRender()
 	}
@@ -300,15 +328,15 @@ class GitHubIssuesComponent implements Focusable {
 			return
 		}
 		if (matchesKey(data, 'pageUp')) {
-			this.moveSelection(-MAX_VISIBLE_ISSUES)
+			this.moveSelection(-MAX_VISIBLE_PULL_REQUESTS)
 			return
 		}
 		if (matchesKey(data, 'pageDown')) {
-			this.moveSelection(MAX_VISIBLE_ISSUES)
+			this.moveSelection(MAX_VISIBLE_PULL_REQUESTS)
 			return
 		}
 		if (matchesKey(data, 'tab')) {
-			this.toggleSelectedIssue()
+			this.toggleSelectedPullRequest()
 			return
 		}
 		if (matchesKey(data, 'enter') || matchesKey(data, 'return')) {
@@ -354,15 +382,15 @@ class GitHubIssuesComponent implements Focusable {
 			return
 		}
 		if (matchesKey(data, 'pageUp')) {
-			this.moveSelection(-MAX_VISIBLE_ISSUES)
+			this.moveSelection(-MAX_VISIBLE_PULL_REQUESTS)
 			return
 		}
 		if (matchesKey(data, 'pageDown')) {
-			this.moveSelection(MAX_VISIBLE_ISSUES)
+			this.moveSelection(MAX_VISIBLE_PULL_REQUESTS)
 			return
 		}
 		if (matchesKey(data, 'space') || matchesKey(data, 'tab')) {
-			this.toggleSelectedIssue()
+			this.toggleSelectedPullRequest()
 			return
 		}
 		if (matchesKey(data, 'enter') || matchesKey(data, 'return')) {
@@ -370,31 +398,37 @@ class GitHubIssuesComponent implements Focusable {
 			return
 		}
 		if (data === 'o') {
-			void this.openSelectedIssue()
+			void this.openSelectedPullRequest()
 			return
 		}
 		if (data === 'r') {
-			void this.loadIssues(this.query.trim())
+			void this.loadPullRequests(this.query.trim())
 		}
 	}
 
-	private renderIssue(issue: GitHubIssue, selected: boolean, width: number): string {
+	private renderPullRequest(
+		pullRequest: GitHubPullRequest,
+		selected: boolean,
+		width: number
+	): string {
 		const th = this.theme
 		const marker = selected ? th.fg('accent', '›') : ' '
-		const checked = this.selectedIssues.has(issue.number)
+		const checked = this.selectedPullRequests.has(pullRequest.number)
 			? th.fg('success', '✓')
 			: th.fg('dim', '○')
-		const number = th.fg('accent', `#${issue.number}`)
-		const title = selected ? th.bold(issue.title) : issue.title
-		const labels = issue.labels
+		const number = th.fg('accent', `#${pullRequest.number}`)
+		const title = selected ? th.bold(pullRequest.title) : pullRequest.title
+		const labels = pullRequest.labels
 			.slice(0, 2)
 			.map((label) => label.name)
 			.filter(Boolean)
-		const assignee = issue.assignees[0]?.login
+		const reviewDecision = formatReviewDecision(pullRequest.reviewDecision)
 		const metadata = [
+			pullRequest.isDraft ? 'draft' : undefined,
 			labels.length > 0 ? labels.join(', ') : undefined,
-			assignee ? `@${assignee}` : undefined,
-			relativeTime(issue.updatedAt),
+			pullRequest.author?.login ? `@${pullRequest.author.login}` : undefined,
+			reviewDecision,
+			relativeTime(pullRequest.updatedAt),
 		]
 			.filter(Boolean)
 			.join(' · ')
@@ -409,14 +443,14 @@ class GitHubIssuesComponent implements Focusable {
 	render(width: number): string[] {
 		const th = this.theme
 		const lines: string[] = ['']
-		const title = `${th.fg('accent', th.bold('GitHub issues'))}${th.fg('dim', ` · ${this.repo}`)}`
+		const title = `${th.fg('accent', th.bold('GitHub pull requests'))}${th.fg('dim', ` · ${this.repo}`)}`
 		const resultCount = this.loading
-			? this.issues.length > 0
-				? `${this.issues.length} · searching…`
+			? this.pullRequests.length > 0
+				? `${this.pullRequests.length} · searching…`
 				: 'loading…'
-			: `${this.issues.length} open`
-		const count = this.selectedIssues.size > 0
-			? `${resultCount} · ${this.selectedIssues.size} selected`
+			: `${this.pullRequests.length} open`
+		const count = this.selectedPullRequests.size > 0
+			? `${resultCount} · ${this.selectedPullRequests.size} selected`
 			: resultCount
 		const gap = ' '.repeat(Math.max(2, width - visibleWidth(title) - visibleWidth(count) - 2))
 		lines.push(truncateToWidth(`  ${title}${gap}${th.fg('dim', count)}`, width))
@@ -433,7 +467,7 @@ class GitHubIssuesComponent implements Focusable {
 			)
 			lines.push(`  ${th.fg('dim', '↑↓ navigate · Tab select · Enter insert · Ctrl+U clear · Esc done')}`)
 		} else {
-			const summary = this.query ? `Results for “${this.query}”` : 'Open issues'
+			const summary = this.query ? `Results for “${this.query}”` : 'Open pull requests'
 			lines.push(truncateToWidth(`  ${th.fg('muted', summary)}`, width, th.fg('dim', '…')))
 			lines.push(`  ${th.fg('dim', 'Press / to search GitHub')}`)
 		}
@@ -441,30 +475,38 @@ class GitHubIssuesComponent implements Focusable {
 
 		if (this.error) {
 			lines.push(truncateToWidth(`  ${th.fg('error', this.error)}`, width, th.fg('dim', '…')))
-		} else if (this.loading && this.issues.length === 0) {
-			lines.push(`  ${th.fg('dim', 'Searching issues…')}`)
-		} else if (this.issues.length === 0) {
-			lines.push(`  ${th.fg('dim', this.query ? 'No matching open issues.' : 'No open issues.')}`)
-		} else {
-			const visibleIssues = this.issues.slice(
-				this.scrollOffset,
-				this.scrollOffset + MAX_VISIBLE_ISSUES
+		} else if (this.loading && this.pullRequests.length === 0) {
+			lines.push(`  ${th.fg('dim', 'Searching pull requests…')}`)
+		} else if (this.pullRequests.length === 0) {
+			lines.push(
+				`  ${th.fg('dim', this.query ? 'No matching open pull requests.' : 'No open pull requests.')}`
 			)
-			for (let index = 0; index < visibleIssues.length; index++) {
+		} else {
+			const visiblePullRequests = this.pullRequests.slice(
+				this.scrollOffset,
+				this.scrollOffset + MAX_VISIBLE_PULL_REQUESTS
+			)
+			for (let index = 0; index < visiblePullRequests.length; index++) {
 				const absoluteIndex = this.scrollOffset + index
-				lines.push(this.renderIssue(visibleIssues[index]!, absoluteIndex === this.selected, width))
+				lines.push(
+					this.renderPullRequest(
+						visiblePullRequests[index]!,
+						absoluteIndex === this.selected,
+						width
+					)
+				)
 			}
 
-			if (this.issues.length > MAX_VISIBLE_ISSUES) {
+			if (this.pullRequests.length > MAX_VISIBLE_PULL_REQUESTS) {
 				lines.push(
-					`  ${th.fg('dim', `${this.selected + 1}/${this.issues.length} · scroll for more`)}`
+					`  ${th.fg('dim', `${this.selected + 1}/${this.pullRequests.length} · scroll for more`)}`
 				)
 			}
 		}
 
 		lines.push('')
-		if (this.openingIssue !== undefined) {
-			lines.push(`  ${th.fg('dim', `Opening #${this.openingIssue} in GitHub…`)}`)
+		if (this.openingPullRequest !== undefined) {
+			lines.push(`  ${th.fg('dim', `Opening #${this.openingPullRequest} in GitHub…`)}`)
 		} else if (!this.searchMode) {
 			lines.push(
 				`  ${th.fg('dim', '↑↓/jk navigate · Space/Tab select · Enter insert selected · / search · o open · Esc close')}`
@@ -483,38 +525,40 @@ class GitHubIssuesComponent implements Focusable {
 	}
 }
 
-export default function githubIssuesExtension(pi: ExtensionAPI): void {
-	pi.registerCommand('issues', {
-		description: 'Browse and search open GitHub issues for the current repository',
+export default function githubPullRequestsExtension(pi: ExtensionAPI): void {
+	pi.registerCommand('prs', {
+		description: 'Browse and search open GitHub pull requests for the current repository',
 		handler: async (args, ctx) => {
 			if (ctx.mode !== 'tui') {
-				ctx.ui.notify('The issue browser requires interactive mode', 'error')
+				ctx.ui.notify('The pull request browser requires interactive mode', 'error')
 				return
 			}
 
 			const resolved = await resolveRepo(pi, ctx.cwd)
 			if (!resolved.ok) {
-				ctx.ui.notify(`GitHub issues: ${resolved.error}`, 'error')
+				ctx.ui.notify(`GitHub pull requests: ${resolved.error}`, 'error')
 				return
 			}
 
-			const issues = await ctx.ui.custom<GitHubIssue[] | undefined>(
+			const pullRequests = await ctx.ui.custom<GitHubPullRequest[] | undefined>(
 				(tui, theme, _keybindings, done) =>
-					new GitHubIssuesComponent(tui, theme, pi, ctx.cwd, resolved.repo, done)
+					new GitHubPullRequestsComponent(tui, theme, pi, ctx.cwd, resolved.repo, done)
 			)
-			if (!issues || issues.length === 0) return
+			if (!pullRequests || pullRequests.length === 0) return
 
-			const draft = draftForAttachmentCommand(ctx.ui.getEditorText(), args, 'issues')
-			const markers = issues.map((issue) => githubReferenceMarker('issue', issue.number))
+			const draft = draftForAttachmentCommand(ctx.ui.getEditorText(), args, 'prs')
+			const markers = pullRequests.map((pullRequest) =>
+				githubReferenceMarker('pr', pullRequest.number)
+			)
 			ctx.ui.setEditorText(appendDraftItems(draft, markers))
-			for (const issue of issues) {
+			for (const pullRequest of pullRequests) {
 				pi.events.emit(GITHUB_REFERENCE_SELECTED_CHANNEL, {
-					kind: 'issue',
-					number: issue.number,
+					kind: 'pr',
+					number: pullRequest.number,
 					repo: resolved.repo,
-					title: issue.title,
-					url: issue.url,
-					state: 'OPEN',
+					title: pullRequest.title,
+					url: pullRequest.url,
+					state: pullRequest.isDraft ? 'DRAFT · OPEN' : 'OPEN',
 				} satisfies GitHubReferenceSelection)
 			}
 		},

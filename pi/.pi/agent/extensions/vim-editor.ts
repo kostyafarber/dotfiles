@@ -30,6 +30,13 @@ import {
 	COMMAND_PALETTE_RUN_CHANNEL,
 	type CommandPaletteDiscoverEvent,
 } from "./lib/command-palette.ts";
+import {
+	DRAFT_MEDIA_ACTIVATE_CHANNEL,
+	DRAFT_MEDIA_COLLECT_CHANNEL,
+	type DraftMediaActivateRequest,
+	type DraftMediaCollectRequest,
+	type DraftMediaItem,
+} from "./lib/draft-media.ts";
 
 const PROMPT_SYMBOL = "󰜴";
 
@@ -49,6 +56,8 @@ type Mode = "normal" | "insert" | "visual";
 type ModeLabelKind = Mode | "leader" | "operator";
 type Operator = "yank" | "delete" | "change";
 type Motion = "h" | "l" | "w" | "b" | "e" | "0" | "$";
+type EditorAction = "preview-media";
+type DraftMediaDirection = "cursor" | "next" | "previous";
 
 type LeaderBinding = {
 	key: string;
@@ -58,6 +67,7 @@ type LeaderBinding = {
 	command?: string;
 	prefill?: string;
 	palette?: boolean;
+	editorAction?: EditorAction;
 };
 
 type LeaderConfig = {
@@ -207,7 +217,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function hasLeaderAction(binding: LeaderBinding): boolean {
-	return Boolean(binding.action || binding.command || binding.prefill || binding.palette);
+	return Boolean(
+		binding.action || binding.command || binding.prefill || binding.palette || binding.editorAction,
+	);
 }
 
 function keyParts(binding: LeaderBinding): string[] {
@@ -246,11 +258,19 @@ function loadLeaderConfig(): LoadedLeaderConfig {
 			const command = typeof value.command === "string" ? value.command : undefined;
 			const prefill = typeof value.prefill === "string" ? value.prefill : undefined;
 			const palette = value.palette === true ? true : undefined;
+			if (value.editorAction !== undefined && value.editorAction !== "preview-media") {
+				throw new Error(`binding "${value.key}" has an unknown editorAction`);
+			}
+			const editorAction = value.editorAction === "preview-media" ? value.editorAction : undefined;
 			const actionCount =
-				Number(Boolean(action)) + Number(Boolean(command)) + Number(Boolean(prefill)) + Number(Boolean(palette));
+				Number(Boolean(action)) +
+				Number(Boolean(command)) +
+				Number(Boolean(prefill)) +
+				Number(Boolean(palette)) +
+				Number(Boolean(editorAction));
 			if (actionCount > 1) {
 				throw new Error(
-					`binding "${value.key}" must use only one of action, command, prefill, or palette`,
+					`binding "${value.key}" must use only one of action, command, prefill, palette, or editorAction`,
 				);
 			}
 			if (command && !command.startsWith("/")) {
@@ -265,6 +285,7 @@ function loadLeaderConfig(): LoadedLeaderConfig {
 				command,
 				prefill,
 				palette,
+				editorAction,
 			};
 		});
 
@@ -713,6 +734,7 @@ class VimEditor extends CustomEditor {
 	private readonly promptSymbol: string;
 	private pendingOperator: Operator | undefined;
 	private pendingTextObjectScope: "inner" | "around" | undefined;
+	private pendingMediaMotion: "[" | "]" | undefined;
 	private visualAnchor: { line: number; col: number } | undefined;
 	private register = "";
 	private registerLinewise = false;
@@ -732,6 +754,11 @@ class VimEditor extends CustomEditor {
 		private readonly showLeaderPalette: () => Promise<LeaderBinding | null>,
 		private readonly showCommandPalette: () => Promise<CommandPaletteItem | null>,
 		private readonly runCommandPaletteAction: (id: string) => void,
+		private readonly activateDraftMedia: (
+			text: string,
+			cursor: { line: number; col: number },
+			direction: DraftMediaDirection,
+		) => DraftMediaItem | undefined,
 		private readonly reportLeaderError: (message: string) => void,
 	) {
 		super(tui, theme, keybindings);
@@ -758,6 +785,7 @@ class VimEditor extends CustomEditor {
 		this.mode = mode;
 		this.pendingOperator = undefined;
 		this.pendingTextObjectScope = undefined;
+		this.pendingMediaMotion = undefined;
 		if (mode !== "visual") this.visualAnchor = undefined;
 		this.syncCursorStyle();
 		this.tui.requestRender();
@@ -1009,6 +1037,23 @@ class VimEditor extends CustomEditor {
 		this.setText(draft);
 	}
 
+	private previewDraftMedia(direction: DraftMediaDirection): void {
+		const item = this.activateDraftMedia(this.getText(), this.getCursor(), direction);
+		if (!item) {
+			this.reportLeaderError(
+				direction === "cursor"
+					? "No previewable attachment under the cursor"
+					: "No previewable attachments in the draft",
+			);
+			return;
+		}
+		if (direction === "cursor") return;
+
+		const before = this.getText().slice(0, item.start);
+		const lines = before.split("\n");
+		this.setCursor(lines.length - 1, lines.at(-1)?.length ?? 0);
+	}
+
 	private async executeLeaderBinding(binding: LeaderBinding): Promise<void> {
 		if (binding.palette) {
 			const selected = await this.showCommandPalette();
@@ -1025,6 +1070,10 @@ class VimEditor extends CustomEditor {
 			const handler = this.actionHandlers.get(binding.action);
 			if (handler) handler();
 			else this.reportLeaderError(`No handler is registered for ${binding.action}`);
+			return;
+		}
+		if (binding.editorAction === "preview-media") {
+			this.previewDraftMedia("cursor");
 			return;
 		}
 		if (binding.command) {
@@ -1069,9 +1118,10 @@ class VimEditor extends CustomEditor {
 		}
 
 		if (matchesKey(data, "escape")) {
-			if (this.pendingOperator) {
+			if (this.pendingOperator || this.pendingMediaMotion) {
 				this.pendingOperator = undefined;
 				this.pendingTextObjectScope = undefined;
+				this.pendingMediaMotion = undefined;
 				this.tui.requestRender();
 			} else if (this.mode === "insert" || this.mode === "visual") {
 				this.setMode("normal");
@@ -1089,6 +1139,15 @@ class VimEditor extends CustomEditor {
 
 		if (this.mode === "visual") {
 			this.handleVisualInput(data);
+			return;
+		}
+
+		if (this.pendingMediaMotion) {
+			const direction = this.pendingMediaMotion === "]" ? "next" : "previous";
+			this.pendingMediaMotion = undefined;
+			if (data === "m") this.previewDraftMedia(direction);
+			else this.tui.terminal.write("\x07");
+			this.tui.requestRender();
 			return;
 		}
 
@@ -1112,6 +1171,12 @@ class VimEditor extends CustomEditor {
 			this.pendingOperator = undefined;
 			if (data === operator[0]) this.applyLineOperator(operator);
 			else if (["h", "l", "w", "b", "e", "0", "$"].includes(data)) this.applyOperator(operator, data as Motion);
+			this.tui.requestRender();
+			return;
+		}
+
+		if (data === "[" || data === "]") {
+			this.pendingMediaMotion = data;
 			this.tui.requestRender();
 			return;
 		}
@@ -1266,6 +1331,9 @@ class VimEditor extends CustomEditor {
 		if (this.leaderActive) {
 			labelKind = "leader";
 			labelText = " LEADER ";
+		} else if (this.pendingMediaMotion) {
+			labelKind = "operator";
+			labelText = this.pendingMediaMotion === "]" ? " NEXT ATTACHMENT " : " PREVIOUS ATTACHMENT ";
 		} else if (this.pendingOperator) {
 			labelKind = "operator";
 			labelText = ` ${this.pendingOperator.toUpperCase()}${this.pendingTextObjectScope ? ` ${this.pendingTextObjectScope.toUpperCase()}` : ""} `;
@@ -1285,6 +1353,56 @@ class VimEditor extends CustomEditor {
 export default function vimEditorExtension(pi: ExtensionAPI): void {
 	let editor: VimEditor | undefined;
 	const loadedLeaderConfig = loadLeaderConfig();
+
+	function cursorOffset(text: string, cursor: { line: number; col: number }): number {
+		const lines = text.split("\n");
+		const line = Math.max(0, Math.min(cursor.line, lines.length - 1));
+		let offset = 0;
+		for (let index = 0; index < line; index++) offset += (lines[index]?.length ?? 0) + 1;
+		return offset + Math.max(0, Math.min(cursor.col, lines[line]?.length ?? 0));
+	}
+
+	function activateMedia(
+		text: string,
+		cursor: { line: number; col: number },
+		direction: DraftMediaDirection,
+	): DraftMediaItem | undefined {
+		const collectRequest: DraftMediaCollectRequest = { text, items: [] };
+		pi.events.emit(DRAFT_MEDIA_COLLECT_CHANNEL, collectRequest);
+		const seen = new Set<string>();
+		const items = collectRequest.items
+			.filter((item) => {
+				if (item.start < 0 || item.end <= item.start || item.end > text.length) return false;
+				const key = `${item.provider}\u0000${item.id}\u0000${item.start}`;
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			})
+			.sort((left, right) => left.start - right.start || left.end - right.end);
+		if (items.length === 0) return undefined;
+
+		const offset = cursorOffset(text, cursor);
+		const underCursor = items.find((item) => offset >= item.start && offset < item.end);
+		let item: DraftMediaItem | undefined;
+		if (direction === "cursor") {
+			item = underCursor;
+		} else if (direction === "next") {
+			const anchor = underCursor?.start ?? offset;
+			item = items.find((candidate) => candidate.start > anchor) ?? items[0];
+		} else {
+			const anchor = underCursor?.start ?? offset;
+			item = [...items].reverse().find((candidate) => candidate.start < anchor) ?? items.at(-1);
+		}
+		if (!item) return undefined;
+
+		const activateRequest: DraftMediaActivateRequest = {
+			item,
+			toggle: direction === "cursor",
+			handled: false,
+		};
+		pi.events.emit(DRAFT_MEDIA_ACTIVATE_CHANNEL, activateRequest);
+		return activateRequest.handled ? item : undefined;
+	}
 
 	async function showPalette(ctx: ExtensionContext): Promise<LeaderBinding | null> {
 		const config = loadedLeaderConfig.config;
@@ -1381,6 +1499,7 @@ export default function vimEditorExtension(pi: ExtensionAPI): void {
 				() => showPalette(ctx),
 				() => showCommands(ctx),
 				runPaletteAction,
+				activateMedia,
 				(message) => ctx.ui.notify(`Leader key: ${message}`, "warning"),
 			);
 			return editor;
