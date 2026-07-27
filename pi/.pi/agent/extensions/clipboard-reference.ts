@@ -32,6 +32,7 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 const MAX_TEXT_CHARS = 100_000
 const MAX_HISTORY_IMAGES = 30
 const RAYCAST_CLIPBOARD_DIR = join(homedir(), 'Library', 'Caches', 'com.raycast.macos', 'Clipboard')
+const BOX_CLIPBOARD_DIR = join(tmpdir(), 'clipboard-images')
 
 type ClipboardImage = {
 	bytes: Uint8Array
@@ -345,40 +346,51 @@ async function loadClipboardCandidates(
 		})
 	}
 
-	try {
-		const entries = await readdir(RAYCAST_CLIPBOARD_DIR, { withFileTypes: true })
-		const imageEntries = entries.filter(
-			(entry) => entry.isFile() && mimeTypeForPath(entry.name) !== undefined
-		)
-		const withStats = await Promise.all(
-			imageEntries.map(async (entry) => {
-				const path = join(RAYCAST_CLIPBOARD_DIR, entry.name)
+	const historyEntries = (
+		await Promise.all(
+			[
+				{ directory: RAYCAST_CLIPBOARD_DIR, description: 'Raycast image history' },
+				{ directory: BOX_CLIPBOARD_DIR, description: 'Box image inbox' },
+			].map(async ({ directory, description }) => {
 				try {
-					return { entry, path, stats: await stat(path) }
+					const entries = await readdir(directory, { withFileTypes: true })
+					return await Promise.all(
+						entries
+							.filter(
+								(entry) => entry.isFile() && mimeTypeForPath(entry.name) !== undefined
+							)
+							.map(async (entry) => {
+								const path = join(directory, entry.name)
+								try {
+									return { entry, path, description, stats: await stat(path) }
+								} catch {
+									return null
+								}
+							})
+					)
 				} catch {
-					return null
+					return []
 				}
 			})
 		)
-		for (const item of withStats
-			.filter((item): item is NonNullable<typeof item> => item !== null)
-			.sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs)) {
-			const fileHash = basename(item.entry.name, extname(item.entry.name))
-			if (currentHash && fileHash === currentHash) continue
-			const mimeType = mimeTypeForPath(item.path)
-			if (!mimeType) continue
-			candidates.push({
-				id: item.entry.name,
-				label: formatAge(item.stats.mtimeMs),
-				description: `${formatBytes(item.stats.size)} · Raycast image history`,
-				filename: item.entry.name,
-				mimeType,
-				path: item.path,
-			})
-			if (candidates.length >= MAX_HISTORY_IMAGES + (current ? 1 : 0)) break
-		}
-	} catch {
-		// Raycast is optional; the live clipboard still works without it.
+	).flat()
+
+	for (const item of historyEntries
+		.filter((item): item is NonNullable<typeof item> => item !== null)
+		.sort((a, b) => b.stats.mtimeMs - a.stats.mtimeMs)) {
+		const fileHash = basename(item.entry.name, extname(item.entry.name))
+		if (currentHash && fileHash === currentHash) continue
+		const mimeType = mimeTypeForPath(item.path)
+		if (!mimeType) continue
+		candidates.push({
+			id: item.path,
+			label: formatAge(item.stats.mtimeMs),
+			description: `${formatBytes(item.stats.size)} · ${item.description}`,
+			filename: item.entry.name,
+			mimeType,
+			path: item.path,
+		})
+		if (candidates.length >= MAX_HISTORY_IMAGES + (current ? 1 : 0)) break
 	}
 
 	return candidates
@@ -606,7 +618,7 @@ export default function (pi: ExtensionAPI) {
 	})
 
 	pi.registerCommand('clipboard', {
-		description: 'Browse current and recent Raycast clipboard images, preview one, and attach it',
+		description: 'Browse current and recent clipboard images, preview one, and attach it',
 		handler: async (args, ctx) => {
 			if (ctx.mode !== 'tui') {
 				ctx.ui.notify('Clipboard viewer is available only in interactive mode.', 'warning')
@@ -656,7 +668,7 @@ export default function (pi: ExtensionAPI) {
 			transformed = true
 			const candidate = (await loadClipboardCandidates(nativeClipboard))[0]
 			if (!candidate) {
-				ctx.ui.notify('No current or recent Raycast clipboard image found.', 'warning')
+				ctx.ui.notify('No current or transferred clipboard image found.', 'warning')
 				text = replaceToken(text, LATEST_IMAGE_TOKEN_PATTERN, '[no clipboard image was available]')
 			} else {
 				try {

@@ -51,13 +51,14 @@ in
     EDITOR = "nvim";
     VISUAL = "nvim";
 
-    # nix's nodejs has a read-only global prefix (the store), so `npm i -g`
-    # can't write there. Point npm's global prefix at a writable dir in $HOME
-    # so fast-moving CLIs (codex) install + self-update outside nix.
+    # nix's nodejs has a read-only global prefix (the store), so npm's global
+    # installs need a writable prefix in $HOME. Pi's official installer
+    # (`curl -fsSL https://pi.dev/install.sh | sh`) honors this prefix.
     NPM_CONFIG_PREFIX = "${config.home.homeDirectory}/.npm-global";
   };
 
-  # put the npm-global bin dir on PATH (where `npm i -g` drops shims, e.g. codex)
+  # Put the npm-global bin dir on PATH. This is where Pi's installer and other
+  # fast-moving npm CLIs drop shims.
   home.sessionPath = [ "${config.home.homeDirectory}/.npm-global/bin" ];
 
   # ---------------------------------------------------------------------------
@@ -288,13 +289,13 @@ in
     defaultKeymap = "viins"; # set -o vi
 
     # PATH for EVERY shell, including non-login ssh commands — clawf/clawsh run
-    # `ssh box "tmux ..."`, which only sources .zshenv. Put the nix profile
-    # (tmux, node, ...) + ~/.local/bin (tmux-sessionizer) + rustup on PATH there.
+    # `ssh box "tmux ..."`, which only sources .zshenv. Put nix-managed tools,
+    # local scripts, Pi's installer prefix, and rustup on PATH there.
     envExtra = ''
       # Move managed tools to the front even when a parent process inherited
       # the same directories later in PATH (for example Codex or an SSH shell).
       typeset -U path PATH
-      path=("$HOME/.nix-profile/bin" "$HOME/.local/bin" $path)
+      path=("$HOME/.nix-profile/bin" "$HOME/.local/bin" "$HOME/.npm-global/bin" $path)
       export PATH
       [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
     '';
@@ -310,6 +311,7 @@ in
       csf = "claude --dangerously-skip-permissions --model haiku";
       # codex in full-auto: no approval prompts, no sandbox (mainly for the box)
       cxs = "codex --dangerously-bypass-approvals-and-sandbox";
+      pi-install = "curl -fsSL https://pi.dev/install.sh | sh";
 
       nrd = "npm run dev";
       drc = "nvim $HOME/.dotfiles";
