@@ -16,6 +16,9 @@ in
   home.username = "kostyafarber";
   home.homeDirectory = "/Users/kostyafarber";
 
+  # Mac clipboard image extraction for the Raycast → remote box bridge.
+  home.packages = [ pkgs.pngpaste ];
+
   # .zshenv → every shell: which flake output `update` applies on this host
   programs.zsh.envExtra = ''export DOTFILES_HM_TARGET="kostyafarber@mac"'';
 

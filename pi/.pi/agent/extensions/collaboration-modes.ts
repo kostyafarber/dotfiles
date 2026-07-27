@@ -24,7 +24,13 @@ const BUG_FEEDBACK_INSTRUCTIONS = `Whenever new bug, regression, test failure, o
 
 Before applying another local patch, pause implementation and discuss the shared model when a core assumption is disproved, two related failures share an invariant, a problem recurs after a fix, one fix exposes another failure at the same boundary, or the user signals recurring confusion. Summarize the evidence, suspected invariant, and any mismatch between the current design's assumptions and the human or product expectation. Do not escalate based on a raw bug count or inspect unrelated history by default; use the current conversation and active change first, then inspect only narrowly relevant review threads, tests, or recent history when needed.`;
 
-const DESIGN_INSTRUCTIONS = `You are in Design mode. Do not edit project files, configuration, or external systems. Inspect the existing system and work conversationally with me until the change has an implementable shape.
+const DEFAULT_INSTRUCTIONS = `Current collaboration mode: Default.
+
+This declaration is authoritative for the current turn. Design mode is inactive. Any Design-mode restrictions or mode claims from earlier conversation are historical and do not apply. You may edit project files, configuration, and external systems when the user requests it, subject to all other instructions and approval requirements.`;
+
+const DESIGN_INSTRUCTIONS = `Current collaboration mode: Design.
+
+This declaration is authoritative for the current turn. Do not edit project files, configuration, or external systems. Inspect the existing system and work conversationally with me until the change has an implementable shape.
 
 Start by identifying the system's invariants: the truths that must remain true across every supported operation and transition. For each important invariant, name its owner, the boundary that enforces it, what could violate it, and how it will be verified. Prefer types, APIs, state machines, and ownership boundaries that make violations unrepresentable. Explicitly flag invariants that still rely on caller discipline, operation ordering, or remembered cleanup.
 
@@ -117,7 +123,7 @@ export default function collaborationModesExtension(pi: ExtensionAPI): void {
 		if (options.persist !== false) persistMode();
 		if (options.notify !== false && ctx.hasUI) {
 			const message = mode === "design"
-				? "Design mode — collaborative inspection; Ctrl+Shift+S returns to Default"
+				? "Design mode — collaborative inspection"
 				: "Default mode";
 			ctx.ui.notify(message, "info");
 		}
@@ -143,13 +149,6 @@ export default function collaborationModesExtension(pi: ExtensionAPI): void {
 			"Implement the design agreed in this conversation now. Follow the agreed decisions and deferred scope. If an open question still blocks implementation, stop and ask instead of guessing.",
 		);
 	}
-
-	pi.registerShortcut("ctrl+shift+s", {
-		description: "Cycle collaboration mode",
-		handler: (ctx) => {
-			setMode(activeMode === "design" ? "default" : "design", ctx);
-		},
-	});
 
 	pi.registerCommand("mode", {
 		description: "Set collaboration mode: design, default, or implement",
@@ -235,9 +234,8 @@ export default function collaborationModesExtension(pi: ExtensionAPI): void {
 	});
 
 	pi.on("before_agent_start", (event) => {
-		const instructions = activeMode === "design"
-			? `${BUG_FEEDBACK_INSTRUCTIONS}\n\n${DESIGN_INSTRUCTIONS}`
-			: BUG_FEEDBACK_INSTRUCTIONS;
+		const modeInstructions = activeMode === "design" ? DESIGN_INSTRUCTIONS : DEFAULT_INSTRUCTIONS;
+		const instructions = `${BUG_FEEDBACK_INSTRUCTIONS}\n\n${modeInstructions}`;
 		return { systemPrompt: `${event.systemPrompt}\n\n${instructions}` };
 	});
 

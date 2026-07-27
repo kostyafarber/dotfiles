@@ -8,6 +8,7 @@
   "showHardwareCursor": true,
   "editorPaddingX": 2,
   "packages": [
-    "npm:beautiful-mermaid@1.1.3"
+    "npm:beautiful-mermaid@1.1.3",
+    "npm:pi-web-access"
   ]
 }

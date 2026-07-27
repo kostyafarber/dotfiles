@@ -136,6 +136,32 @@ in
   home.file.".pi/agent/themes".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/themes";
 
+  # Keep ignored node_modules in local Pi extensions synchronized with their
+  # checked-in lockfiles. The marker avoids reinstalling on every switch; npm ls
+  # also catches partially deleted or otherwise broken dependency trees.
+  home.activation.piExtensionDependencies =
+    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      extensionRoot=${lib.escapeShellArg "${dotfiles}/pi/.pi/agent/extensions"}
+      if [ -d "$extensionRoot" ]; then
+        for lockfile in "$extensionRoot"/*/package-lock.json; do
+          [ -e "$lockfile" ] || continue
+          extensionDir="''${lockfile%/package-lock.json}"
+          marker="$extensionDir/node_modules/.pi-package-lock.json"
+
+          if ! ${pkgs.diffutils}/bin/cmp -s "$lockfile" "$marker" \
+            || ! ${pkgs.nodejs_24}/bin/npm --prefix "$extensionDir" ls --omit=dev --depth=0 >/dev/null 2>&1; then
+            echo "Installing Pi extension dependencies: ''${extensionDir##*/}"
+            if (cd "$extensionDir" && run ${pkgs.nodejs_24}/bin/npm ci --omit=dev --no-audit --no-fund); then
+              run ${pkgs.coreutils}/bin/cp "$lockfile" "$marker"
+            else
+              echo "Failed to install Pi extension dependencies in $extensionDir" >&2
+              exit 1
+            fi
+          fi
+        done
+      fi
+    '';
+
   # ---------------------------------------------------------------------------
   # hunk — terminal diff viewer for reviewing changes, especially agent-authored
   # ones (`hunk diff` for the working tree, `hunk show` for the last commit,
