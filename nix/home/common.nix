@@ -55,6 +55,10 @@ in
     # installs need a writable prefix in $HOME. Pi's official installer
     # (`curl -fsSL https://pi.dev/install.sh | sh`) honors this prefix.
     NPM_CONFIG_PREFIX = "${config.home.homeDirectory}/.npm-global";
+
+    # prefix+f should offer PR worktrees (made by `pco`) next to real clones
+    TMUX_SESSIONIZER_PATHS =
+      "${config.home.homeDirectory}/repos:${config.home.homeDirectory}/worktrees";
   };
 
   # Put the npm-global bin dir on PATH. This is where Pi's installer and other
@@ -303,6 +307,11 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/theme";
   home.file.".local/bin/tt".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/tt";
+
+  # check a GitHub PR out from anywhere, into its own worktree + tmux session
+  # (`pco <url>`, `pco 123`, `pco ls`, `pco rm 123`)
+  home.file.".local/bin/pco".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/pco";
 
   # ---------------------------------------------------------------------------
   # zsh — lean: oh-my-zsh dropped (prompt = oh-my-posh, `z` = zoxide,

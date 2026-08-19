@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+# dotskip: hide runtime churn in dotfiles settings files from git.
+#
+# Claude Code and pi write UI state (effort level, thinking level, last-seen
+# changelog version) back into the settings.json files this repo tracks, so
+# the repo goes dirty every time a toggle is touched. skip-worktree makes git
+# stop reporting those local changes; this script manages the list.
+#
+#   dotskip           list files currently skipped
+#   dotskip on        skip the known churny settings files
+#   dotskip off [f]   un-skip them all (or just one) — do this before
+#                     committing an intentional settings change, then
+#                     `dotskip on` again afterwards
+
+set -euo pipefail
+
+DOTFILES=${DOTFILES:-$HOME/.dotfiles}
+
+FILES=(
+    claude-code/.claude/settings.json
+    pi/.pi/agent/settings.json
+)
+
+usage() { awk 'NR>2 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"; exit 0; }
+
+case ${1:-ls} in
+    ls|list)
+        git -C "$DOTFILES" ls-files -v | awk '$1 == "S" { print $2 }'
+        ;;
+    on)
+        git -C "$DOTFILES" update-index --skip-worktree "${FILES[@]}"
+        printf 'skipping:\n'; printf '  %s\n' "${FILES[@]}"
+        ;;
+    off)
+        shift
+        targets=("${@:-${FILES[@]}}")
+        git -C "$DOTFILES" update-index --no-skip-worktree "${targets[@]}"
+        printf 'watching again:\n'; printf '  %s\n' "${targets[@]}"
+        ;;
+    -h|--help)
+        usage
+        ;;
+    *)
+        printf 'dotskip: unknown command %s\n' "$1" >&2; exit 1
+        ;;
+esac

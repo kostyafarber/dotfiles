@@ -1,0 +1,374 @@
+#!/usr/bin/env bash
+
+# pco: check a GitHub PR out from anywhere, into its own worktree + tmux session.
+#
+# `gh pr checkout <url>` only works if you're already sitting in the right
+# clone, and it takes over your current branch. pco resolves the repo from the
+# URL, so it works from any directory, and parks each PR in its own worktree so
+# your main checkout stays where you left it.
+#
+#   pco                            fzf-pick an open PR in the current repo
+#   pco <url>                      https://github.com/owner/repo/pull/123
+#   pco owner/repo#123             ...or the short form
+#   pco 123                        ...or just the number, in the current repo
+#   pco 123 --here                 check out in the main clone instead
+#   pco ls                         list open PR worktrees
+#   pco rm [123]                   remove a PR worktree and kill its session
+#   pco deps [dir] [-f]            prime any worktree's node_modules
+#
+# A new worktree gets its node_modules cloned copy-on-write from the main
+# checkout instead of installed: seconds, offline, no extra disk, and build
+# artefacts like Electron's unpacked binary come along. Add -i to run a real
+# install on top (needed only when the PR changes the lockfile), --no-deps to
+# skip it.
+#
+# Clones are searched for under $PCO_REPOS (default ~/repos), matched on their
+# origin remote. Worktrees land in $PCO_WORKTREES (default ~/worktrees), which
+# is on TMUX_SESSIONIZER_PATHS so prefix+f finds them too.
+
+set -uo pipefail
+
+REPOS=${PCO_REPOS:-$HOME/repos}
+WORKTREES=${PCO_WORKTREES:-$HOME/worktrees}
+# Gitignored files copied from the clone into a fresh worktree (space-separated
+# globs, relative to the repo root). Secrets a fresh checkout would be missing.
+COPY_GLOBS=${PCO_COPY:-".env .env.local .dev.vars"}
+
+die() { printf 'pco: %s\n' "$*" >&2; exit 1; }
+say() { printf '  %s\n' "$*"; }
+
+# Print the header comment block above, minus the `# ` markers.
+usage() { awk 'NR>2 { if ($0 !~ /^#/) exit; sub(/^# ?/, ""); print }' "$0"; exit 0; }
+
+# --- tmux ------------------------------------------------------------------
+
+# Attach to (or create) a session named $1 rooted at $2, the way tmux-sessionizer
+# does: switch-client when we're already inside tmux, attach when we're not.
+jump_to_session() {
+    local name=$1 dir=$2
+    name=$(printf '%s' "$name" | tr '.' '_')
+
+    if [[ -n ${PCO_NO_TMUX:-} ]] || ! command -v tmux >/dev/null; then
+        say "cd $dir"
+        return 0
+    fi
+
+    if [[ -z ${TMUX:-} ]] && ! pgrep -x tmux >/dev/null; then
+        exec tmux new-session -s "$name" -c "$dir"
+    fi
+    if ! tmux has-session -t="$name" 2>/dev/null; then
+        tmux new-session -ds "$name" -c "$dir"
+    fi
+    if [[ -z ${TMUX:-} ]]; then
+        exec tmux attach-session -t "$name"
+    fi
+    tmux switch-client -t "$name"
+}
+
+# --- parsing ---------------------------------------------------------------
+
+# Fills $slug (owner/repo) and $num from a URL, owner/repo#N, or a bare number.
+parse_target() {
+    local arg=$1
+    case $arg in
+        *github.com[:/]*/pull/*)
+            slug=$(printf '%s' "$arg" | sed -E 's#.*github\.com[:/]+([^/]+/[^/]+)/pull/.*#\1#')
+            num=$(printf '%s' "$arg" | sed -E 's#.*/pull/([0-9]+).*#\1#')
+            ;;
+        */*#[0-9]*)
+            slug=${arg%%#*}
+            num=${arg##*#}
+            ;;
+        [0-9]*)
+            num=$arg
+            slug=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null) \
+                || die "not in a GitHub repo — pass a URL or owner/repo#$num"
+            [[ -n $slug ]] || die "not in a GitHub repo — pass a URL or owner/repo#$num"
+            ;;
+        *)
+            die "don't understand '$arg' — expected a PR url, owner/repo#123, or 123"
+            ;;
+    esac
+    slug=${slug%.git}
+    [[ $num =~ ^[0-9]+$ ]] || die "no PR number in '$arg'"
+}
+
+# Normalize a remote url to owner/repo so ssh and https forms compare equal.
+remote_slug() {
+    printf '%s' "$1" | sed -E -e 's#^git@[^:]+:#/#' -e 's#^[a-z]+://[^/]+/#/#' \
+        -e 's#\.git$##' -e 's#^/##'
+}
+
+# Locate the local clone of $slug: prefer an origin-remote match under $REPOS,
+# fall back to a directory named after the repo.
+find_clone() {
+    local want=$1 dir url
+    for dir in "$REPOS"/*/; do
+        [[ -e ${dir}.git ]] || continue
+        url=$(git -C "$dir" remote get-url origin 2>/dev/null) || continue
+        if [[ $(remote_slug "$url") == "$want" ]]; then
+            printf '%s' "${dir%/}"
+            return 0
+        fi
+    done
+    if [[ -e "$REPOS/${want##*/}/.git" ]]; then
+        printf '%s' "$REPOS/${want##*/}"
+        return 0
+    fi
+    return 1
+}
+
+# Path of the worktree that has $2 checked out in repo $1, if any.
+worktree_of_branch() {
+    git -C "$1" worktree list --porcelain \
+        | awk -v want="refs/heads/$2" '
+            /^worktree /  { path = substr($0, 10) }
+            /^branch /    { if (substr($0, 8) == want) { print path; exit } }'
+}
+
+install_deps() {
+    local dir=$1
+    if   [[ -f $dir/yarn.lock ]];         then ( cd "$dir" && yarn install )
+    elif [[ -f $dir/pnpm-lock.yaml ]];    then ( cd "$dir" && pnpm install )
+    elif [[ -f $dir/bun.lock || -f $dir/bun.lockb ]]; then ( cd "$dir" && bun install )
+    elif [[ -f $dir/package-lock.json ]]; then ( cd "$dir" && npm ci )
+    else say "no lockfile — nothing to install"; fi
+}
+
+# Give a fresh worktree its dependencies without installing them.
+#
+# A full `yarn install` in a new worktree of a big monorepo re-materializes
+# every node_modules tree from scratch, and re-runs the build scripts — which
+# is how you end up with an `electron` package that has no unpacked binary and
+# a dev server that dies with "Electron uninstall". So instead we clone the
+# trees the main checkout already has, copy-on-write (APFS clonefile): seconds
+# instead of minutes, no network, and no extra disk, because the two copies
+# share their blocks until one of them is written to.
+#
+# Safe to relocate: every symlink inside node_modules is relative, so workspace
+# links re-point at *this* worktree's packages rather than the clone's.
+clone_deps() {
+    local from=$1 to=$2 force=${3:-0} rel n=0
+    [[ -d $from/node_modules ]] || { say "deps     nothing to clone from $from"; return 1; }
+
+    # Bail loudly rather than falling back to a real 4.7G copy.
+    if ! cp -c "$from/package.json" "$to/.pco-clonetest" 2>/dev/null; then
+        say "deps     filesystem has no copy-on-write — install them yourself"
+        return 1
+    fi
+    rm -f "$to/.pco-clonetest"
+
+    while IFS= read -r rel; do
+        rel=${rel#./}
+        if [[ -e $to/$rel ]]; then
+            [[ $force -eq 1 ]] || continue
+            rm -rf "${to:?}/$rel"
+        fi
+        mkdir -p "$(dirname "$to/$rel")"
+        cp -Rc "$from/$rel" "$to/$rel" || return 1
+        n=$((n + 1))
+    done < <(cd "$from" && find . -maxdepth 5 -name node_modules -type d -prune)
+
+    say "deps     cloned $n node_modules trees from $from (no install)"
+
+    # Deps only diverge if the PR touched the lockfile. When it did, bring the
+    # project's yarn cache along too so the reconciling install stays offline.
+    if [[ -f $to/yarn.lock ]] && ! cmp -s "$from/yarn.lock" "$to/yarn.lock"; then
+        [[ -d $from/.yarn/cache && ! -d $to/.yarn/cache ]] \
+            && cp -Rc "$from/.yarn/cache" "$to/.yarn/cache" 2>/dev/null
+        say "         this PR changes yarn.lock — run 'yarn install' to reconcile"
+    fi
+}
+
+# Carry gitignored config (.env and friends) over into a fresh worktree.
+copy_local_files() {
+    local from=$1 to=$2 glob src copied=()
+    for glob in $COPY_GLOBS; do
+        for src in "$from"/$glob; do
+            [[ -f $src && ! -e "$to/${src##*/}" ]] || continue
+            cp "$src" "$to/${src##*/}" && copied+=("${src##*/}")
+        done
+    done
+    [[ ${#copied[@]} -gt 0 ]] && say "copied   ${copied[*]}"
+}
+
+# --- subcommands -----------------------------------------------------------
+
+cmd_ls() {
+    local dir found=0
+    for dir in "$WORKTREES"/*/; do
+        [[ -e ${dir}.git ]] || continue
+        found=1
+        printf '%-40s %s\n' "$(basename "${dir%/}")" \
+            "$(git -C "$dir" branch --show-current 2>/dev/null)"
+    done
+    [[ $found -eq 0 ]] && say "no PR worktrees in $WORKTREES"
+    exit 0
+}
+
+# pco deps [dir] — prime any worktree's node_modules from its main checkout,
+# including ones pco didn't make. `-f` replaces trees that are already there
+# (an interrupted or script-skipped install leaves them present but broken).
+cmd_deps() {
+    local force=0 dir="" common
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -f|--force) force=1 ;;
+            *)          dir=$1 ;;
+        esac
+        shift
+    done
+    dir=${dir:-$PWD}
+    [[ -d $dir ]] || die "no such directory: $dir"
+
+    # The main checkout is the parent of the shared git dir.
+    common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+        || die "$dir is not a git worktree"
+    local main=${common%/.git}
+    [[ $main == "$common" ]] && die "couldn't find the main checkout for $dir"
+    [[ $main == "$dir" ]] && die "$dir is the main checkout — nothing to clone from"
+
+    clone_deps "$main" "$dir" "$force"
+    exit $?
+}
+
+cmd_rm() {
+    local target=${1:-} dir name branch
+    if [[ -z $target ]]; then
+        dir=$(cd "$WORKTREES" 2>/dev/null && ls -d ./*/ 2>/dev/null \
+            | sed 's#^\./##; s#/$##' | fzf --prompt "remove worktree> " --height 40% --reverse)
+        [[ -z $dir ]] && exit 0
+        dir="$WORKTREES/$dir"
+    else
+        dir=$(ls -d "$WORKTREES"/*-pr-"${target#\#}" 2>/dev/null | head -1)
+        [[ -z $dir ]] && die "no worktree for PR $target in $WORKTREES"
+    fi
+
+    name=$(basename "$dir" | tr '.' '_')
+    branch=$(git -C "$dir" branch --show-current 2>/dev/null)
+    git -C "$dir" worktree remove "$dir" 2>/dev/null \
+        || git -C "$dir" worktree remove --force "$dir" 2>/dev/null \
+        || rm -rf "$dir"
+    say "removed  $dir"
+    # The branch stays: it may hold commits that were never pushed.
+    [[ -n $branch ]] && say "kept     branch $branch"
+    if tmux has-session -t="$name" 2>/dev/null; then
+        [[ ${TMUX:-} && $(tmux display-message -p '#S') == "$name" ]] && tmux switch-client -l
+        tmux kill-session -t "$name" && say "killed   session $name"
+    fi
+    exit 0
+}
+
+# --- main ------------------------------------------------------------------
+
+here=0 install=0 nodeps=0 target=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)      usage ;;
+        ls|list)        cmd_ls ;;
+        rm|remove)      shift; cmd_rm "${1:-}" ;;
+        deps)           shift; cmd_deps "$@" ;;
+        --here)         here=1 ;;
+        -i|--install)   install=1 ;;
+        --no-deps)      nodeps=1 ;;
+        -*)             die "unknown flag $1" ;;
+        *)              target=$1 ;;
+    esac
+    shift
+done
+
+command -v gh >/dev/null || die "gh is not installed"
+
+slug="" num=""
+if [[ -z $target ]]; then
+    # No argument: pick from the open PRs of whatever repo we're standing in.
+    git rev-parse --git-dir >/dev/null 2>&1 || die "not in a repo — pass a PR url"
+    picked=$(gh pr list --limit 50 \
+        --json number,title,author,headRefName \
+        --template '{{range .}}{{printf "%v\t%s\t%s\t%s\n" .number .title .author.login .headRefName}}{{end}}' \
+        | column -t -s $'\t' \
+        | fzf --prompt "pr> " --height 60% --reverse --border \
+              --preview 'gh pr view {1} --json title,body,files -q "\"# \" + .title + \"\n\n\" + .body + \"\n\n\" + (.files | map(\"  \" + .path) | join(\"\n\"))"' \
+              --preview-window=right:55%)
+    [[ -z $picked ]] && exit 0
+    parse_target "${picked%% *}"
+else
+    parse_target "$target"
+fi
+
+repo=$(find_clone "$slug") || die "no clone of $slug under $REPOS — try: gh repo clone $slug $REPOS/${slug##*/}"
+name=${slug##*/}
+
+info=$(gh pr view "$num" --repo "$slug" \
+    --json headRefName,title,state,isCrossRepository,author \
+    -q '[.headRefName, .title, .state, (.isCrossRepository|tostring), .author.login] | @tsv') \
+    || die "couldn't read $slug#$num"
+IFS=$'\t' read -r head title state cross author <<< "$info"
+
+printf '\n'
+say "repo     $name  ($repo)"
+say "pr       #$num  \"$title\"  by @$author"
+[[ $cross == true ]] && head_note=" (fork: @$author)" || head_note=""
+say "branch   $head$head_note"
+[[ $state != OPEN ]] && say "state    $state"
+
+# --here: check out in the main clone, the old behaviour, minus the hunt.
+if [[ $here -eq 1 ]]; then
+    ( cd "$repo" && gh pr checkout "$num" --repo "$slug" ) || die "gh pr checkout failed"
+    say "checked out in $repo"
+    [[ $install -eq 1 ]] && install_deps "$repo"
+    printf '\n'
+    jump_to_session "$name" "$repo"
+    exit 0
+fi
+
+wt="$WORKTREES/$name-pr-$num"
+
+# Checked out somewhere that isn't ours — an old scratchpad, .claude/worktrees,
+# the main clone. Git won't allow a second checkout of the branch anyway, so go
+# to it and leave it exactly as it is.
+existing=$(worktree_of_branch "$repo" "$head")
+if [[ -n $existing && $existing != "$wt" ]]; then
+    say "already open at $existing"
+    printf '\n'
+    jump_to_session "$(basename "$existing")" "$existing"
+    exit 0
+fi
+
+if [[ -d $wt ]]; then
+    say "worktree $wt (existing)"
+    if [[ -n $(git -C "$wt" status --porcelain) ]]; then
+        say "         uncommitted changes — left as they are"
+    else
+        before=$(git -C "$wt" rev-parse HEAD)
+        git -C "$wt" fetch -q origin "refs/pull/$num/head"
+        if git -C "$wt" merge -q --ff-only FETCH_HEAD 2>/dev/null; then
+            [[ $(git -C "$wt" rev-parse HEAD) != "$before" ]] \
+                && say "         pulled the latest push"
+        else
+            # Force-push, or local commits of your own. Either way, don't guess.
+            say "         diverged from the PR head — left as it is"
+        fi
+    fi
+else
+    mkdir -p "$WORKTREES"
+    say "fetching pull/$num/head..."
+    git -C "$repo" fetch -q origin "refs/pull/$num/head" || die "fetch failed"
+    # Materialize the files once, at the PR's commit...
+    git -C "$repo" worktree add -q --detach "$wt" FETCH_HEAD || die "worktree add failed"
+    # ...then let gh name the branch and wire up tracking (it knows about forks).
+    # The tree is already at that commit, so this touches no files.
+    if ! ( cd "$wt" && gh pr checkout "$num" --repo "$slug" >/dev/null 2>&1 ); then
+        say "note     couldn't attach a branch — worktree is detached at the PR head"
+    fi
+    say "worktree $wt (new)"
+    copy_local_files "$repo" "$wt"
+fi
+
+if [[ -f $wt/package.json && ! -d $wt/node_modules && $nodeps -eq 0 ]]; then
+    clone_deps "$repo" "$wt"
+fi
+[[ $install -eq 1 ]] && install_deps "$wt"
+
+printf '\n'
+jump_to_session "$name-pr-$num" "$wt"
