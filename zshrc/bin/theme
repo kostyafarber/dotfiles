@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# theme — flip nvim, ghostty, and Pi between catppuccin latte (light) and mocha (dark).
+# theme — flip nvim, ghostty, Pi, and fzf between catppuccin latte (light) and mocha (dark).
 #
 # Single source of truth: a tiny state file at ~/.local/state/theme/mode holding
 # "dark" or "light". Every running nvim and Pi session watches it and restyles
-# itself instantly; new instances read it on startup. Ghostty has no external
+# itself instantly; new fzf instances read a switched palette file. Ghostty has no external
 # reload, so we rewrite its `theme =` line (new windows pick it up) and best-effort
 # trigger the reload_config keybind (default cmd+shift+,) for windows already open.
 #
@@ -19,11 +19,14 @@ set -euo pipefail
 STATE_DIR="$HOME/.local/state/theme"
 STATE_FILE="$STATE_DIR/mode"
 GHOSTTY_CONFIG="$STATE_DIR/ghostty.conf"
+FZF_CONFIG="$STATE_DIR/fzf.conf"
 
 # mode -> app theme names
-# Ghostty names resolve to matching files in ghostty/themes/; Pi names resolve in ~/.pi/agent/themes/.
+# Ghostty names resolve to matching files in ghostty/themes/; Pi names resolve in
+# ~/.pi/agent/themes/; fzf names resolve in ~/.config/fzf/themes/.
 ghostty_theme() { [[ "$1" == dark ]] && echo "catppuccin-mocha" || echo "catppuccin-latte"; }
 pi_theme() { [[ "$1" == dark ]] && echo "catppuccin-mocha-clean" || echo "catppuccin-latte-clean"; }
+fzf_theme() { [[ "$1" == dark ]] && echo "catppuccin-mocha" || echo "catppuccin-latte"; }
 
 current() {
   if [[ -r "$STATE_FILE" ]]; then tr -d '[:space:]' < "$STATE_FILE"; else echo light; fi
@@ -42,9 +45,10 @@ esac
 mkdir -p "$STATE_DIR"
 printf '%s\n' "$mode" > "$STATE_FILE"
 
-# 2. Rewrite ghostty's theme line (replace existing, else append).
+# 2. Rewrite ghostty's theme line and point fzf at the matching palette.
 gtheme="$(ghostty_theme "$mode")"
 ptheme="$(pi_theme "$mode")"
+ftheme="$(fzf_theme "$mode")"
 if [[ -f "$GHOSTTY_CONFIG" ]] && grep -qE '^theme = ' "$GHOSTTY_CONFIG"; then
   tmp="$(mktemp)"
   sed -E "s|^theme = .*|theme = ${gtheme}|" "$GHOSTTY_CONFIG" > "$tmp"
@@ -53,6 +57,7 @@ if [[ -f "$GHOSTTY_CONFIG" ]] && grep -qE '^theme = ' "$GHOSTTY_CONFIG"; then
 else
   printf 'theme = %s\n' "$gtheme" >> "$GHOSTTY_CONFIG"
 fi
+ln -sfn "$HOME/.config/fzf/themes/${ftheme}.conf" "$FZF_CONFIG"
 
 # 3. Nudge already-open ghostty windows to reload. Only fire the chord if ghostty
 #    is frontmost, so we never inject cmd+shift+, into some other app.
@@ -66,8 +71,8 @@ if command -v osascript >/dev/null 2>&1; then
   fi
 fi
 
-printf 'theme → %s  (ghostty: %s · nvim: catppuccin-%s · pi: %s)\n' \
-  "$mode" "$gtheme" "$([[ $mode == dark ]] && echo mocha || echo latte)" "$ptheme"
+printf 'theme → %s  (ghostty: %s · nvim: catppuccin-%s · pi: %s · fzf: %s)\n' \
+  "$mode" "$gtheme" "$([[ $mode == dark ]] && echo mocha || echo latte)" "$ptheme" "$ftheme"
 if [[ $reloaded -eq 0 ]]; then
   printf '  ↳ open ghostty windows: press ⌘⇧, to reload (new windows already use it)\n'
 fi

@@ -50,6 +50,7 @@ in
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";
+    FZF_DEFAULT_OPTS_FILE = "${config.home.homeDirectory}/.local/state/theme/fzf.conf";
 
     # nix's nodejs has a read-only global prefix (the store), so npm's global
     # installs need a writable prefix in $HOME. Pi's official installer
@@ -105,17 +106,12 @@ in
   # directory jumping — replaces the oh-my-zsh `z` plugin
   programs.zoxide.enable = true;
 
-  # fzf, carrying over your catppuccin-latte colours
-  programs.fzf = {
-    enable = true;
-    defaultOptions = [
-      "--color=bg+:#ccd0da,bg:#eff1f5,spinner:#dc8a78,hl:#d20f39"
-      "--color=fg:#4c4f69,header:#d20f39,info:#8839ef,pointer:#dc8a78"
-      "--color=marker:#dc8a78,fg+:#4c4f69,prompt:#8839ef,hl+:#d20f39"
-      "--color=selected-bg:#bcc0cc"
-      "--color=border:#ccd0da,label:#4c4f69"
-    ];
-  };
+  # fzf reads its active palette from theme state, switched by `theme` / `tt`.
+  programs.fzf.enable = true;
+  xdg.configFile."fzf/themes/catppuccin-latte.conf".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/fzf/.config/fzf/themes/catppuccin-latte.conf";
+  xdg.configFile."fzf/themes/catppuccin-mocha.conf".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/fzf/.config/fzf/themes/catppuccin-mocha.conf";
 
   # ---------------------------------------------------------------------------
   # lazygit — binary from nix, config symlinked live from the repo
@@ -333,6 +329,20 @@ in
       path=("$HOME/.nix-profile/bin" "$HOME/.local/bin" "$HOME/.npm-global/bin" $path)
       export PATH
       [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+      # Drop the old fixed Latte value from inherited environments. fzf reads
+      # this stable state path on every launch, so `tt` affects existing shells.
+      unset FZF_DEFAULT_OPTS
+      export FZF_DEFAULT_OPTS_FILE="$HOME/.local/state/theme/fzf.conf"
+      if [[ ! -e "$FZF_DEFAULT_OPTS_FILE" ]]; then
+        mkdir -p "$HOME/.local/state/theme"
+        if [[ -r "$HOME/.local/state/theme/mode" ]] &&
+           [[ "$(< "$HOME/.local/state/theme/mode")" == dark ]]; then
+          ln -sfn "$HOME/.config/fzf/themes/catppuccin-mocha.conf" "$FZF_DEFAULT_OPTS_FILE"
+        else
+          ln -sfn "$HOME/.config/fzf/themes/catppuccin-latte.conf" "$FZF_DEFAULT_OPTS_FILE"
+        fi
+      fi
     '';
 
     shellAliases = {
