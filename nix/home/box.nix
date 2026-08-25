@@ -51,6 +51,6 @@ in
     Install.WantedBy = [ "default.target" ];
   };
 
-  # which flake output `hms`/`update` apply on this host (.zshenv → every shell)
-  programs.zsh.envExtra = ''export DOTFILES_HM_TARGET="firmclaw@box"'';
+  # Which flake output `rebuild`/`update` apply on this host.
+  programs.zsh.envExtra = ''export DOTFILES_TARGET="firmclaw@box"'';
 }

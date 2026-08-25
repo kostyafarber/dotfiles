@@ -1,50 +1,78 @@
 {
-  description = "kostyafarber dotfiles — one home-manager config for macOS + Linux";
+  description = "kostyafarber dotfiles — nix-darwin Macs + Home Manager Linux";
 
   inputs = {
-    # Pinned to a stable release for predictability. Bump both together.
+    # Stable by default; unstable is used only for state-schema-sensitive tools
+    # that must not lag behind their existing on-disk data.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # hunk — terminal diff viewer for reviewing agent-authored changes (box
-    # only; wired up in nix/home/box.nix). Follows our nixpkgs so we don't drag
-    # a second copy of it into the store.
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin/nix-darwin-25.11";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Installs Homebrew itself; nix-darwin manages the declared formulae/casks.
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+
+    # Terminal diff viewer for reviewing agent-authored changes.
     hunk = {
       url = "github:modem-dev/hunk";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { nixpkgs, home-manager, ... }@inputs:
+  outputs =
+    inputs@{
+      nixpkgs,
+      home-manager,
+      nix-darwin,
+      nix-homebrew,
+      ...
+    }:
     let
-      # Helper: build a standalone home-manager config from the shared
-      # `common.nix` plus a per-host module. `inputs` is passed through to the
-      # modules (extraSpecialArgs) so a per-host module can pull in flake inputs
-      # — e.g. box.nix importing hunk's home-manager module.
-      mkHome = { system, hostModule }:
+      # Standalone Home Manager remains appropriate for the Ubuntu box.
+      mkHome =
+        { system, hostModule }:
         home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${system};
           extraSpecialArgs = { inherit inputs; };
-          modules = [ ./nix/home/common.nix hostModule ];
+          modules = [
+            ./nix/home/common.nix
+            hostModule
+          ];
+        };
+
+      # Every Mac shares the Darwin/Home Manager foundation; host modules only
+      # select profiles and declare physical-machine differences.
+      mkDarwinHost =
+        hostModule:
+        nix-darwin.lib.darwinSystem {
+          system = "aarch64-darwin";
+          specialArgs = { inherit inputs; };
+          modules = [
+            home-manager.darwinModules.home-manager
+            nix-homebrew.darwinModules.nix-homebrew
+            ./nix/darwin/common.nix
+            hostModule
+          ];
         };
     in
     {
+      darwinConfigurations = {
+        macbook = mkDarwinHost ./nix/hosts/macbook.nix;
+        mac-mini = mkDarwinHost ./nix/hosts/mac-mini.nix;
+      };
+
       homeConfigurations = {
-        # The Ubuntu home server. Apply with:
-        #   home-manager switch --flake ~/.dotfiles#firmclaw@box
         "firmclaw@box" = mkHome {
           system = "x86_64-linux";
           hostModule = ./nix/home/box.nix;
-        };
-
-        # The MacBook (phase 2). Apply with:
-        #   home-manager switch --flake ~/.dotfiles#kostyafarber@mac
-        "kostyafarber@mac" = mkHome {
-          system = "aarch64-darwin";
-          hostModule = ./nix/home/mac.nix;
         };
       };
     };

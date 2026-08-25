@@ -14,9 +14,6 @@ vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
     {import = "plugins.core"},
-    {import = "plugins.vscode", cond = function() return vim.g.vscode end},
-    {import = "plugins.nvim", cond = function() return not vim.g.vscode end},
-    {import = "plugins.nvim.lsp", cond = function() return not vim.g.vscode end}
+    {import = "plugins.nvim"},
+    {import = "plugins.nvim.lsp"}
 })
-
-if vim.g.vscode then require("vscode_core/keymaps") end

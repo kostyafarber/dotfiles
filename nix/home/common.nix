@@ -1,4 +1,4 @@
-{ config, pkgs, lib, inputs, ... }:
+{ config, pkgs, lib, inputs, osConfig ? null, ... }:
 
 let
   # Live path to the dotfiles checkout. Used for configs we want to stay
@@ -11,11 +11,15 @@ let
   # sink so the binding still parses.
   copyCmd = if pkgs.stdenv.isDarwin then "pbcopy" else "cat";
 
-  # Per-host accent, so a glance at the tmux bar tells you which machine you're
-  # on (mac is the only darwin host, the box the only linux one). Mac keeps the
-  # sand-yellow bar; the box gets a distinct blue one + a "box" tag on the left.
+  # Per-platform accent plus the physical host name in the tmux status bar.
   hostColor = if pkgs.stdenv.isDarwin then "#D7BA7D" else "#7AA2D7";
-  hostLabel = if pkgs.stdenv.isDarwin then "mac" else "box";
+  hostLabel = if osConfig != null then osConfig.networking.hostName else "box";
+
+  rebuildCommand =
+    if pkgs.stdenv.isDarwin then
+      ''sudo /run/current-system/sw/bin/darwin-rebuild switch --flake "$HOME/.dotfiles#$target"''
+    else
+      ''home-manager switch --flake "$HOME/.dotfiles#$target"'';
 in
 {
   # home-manager's state version. Set once at first install; don't bump
@@ -347,10 +351,8 @@ in
 
     shellAliases = {
       e = "exit";
-      # rebuild this host's home-manager generation (target set per-host via
-      # $DOTFILES_HM_TARGET in mac.nix/box.nix); `update` also bumps flake inputs
-      hms = "home-manager switch --flake \"$HOME/.dotfiles#$DOTFILES_HM_TARGET\"";
-      update = "( cd \"$HOME/.dotfiles\" && nix flake update ) && home-manager switch --flake \"$HOME/.dotfiles#$DOTFILES_HM_TARGET\"";
+      # Compatibility alias; `rebuild` selects darwin-rebuild or Home Manager.
+      hms = "rebuild";
       c = "claude";
       cs = "claude --dangerously-skip-permissions";
       csf = "claude --dangerously-skip-permissions --model haiku";
@@ -422,14 +424,19 @@ in
         fi
       }
 
-      # update: pull the latest dotfiles and apply them. Host is auto-picked from
-      # $DOTFILES_HM_TARGET (set per-host in box.nix / mac.nix), so the same
-      # command works on every machine.
+      # Rebuild the current physical host. DOTFILES_TARGET is set by its host
+      # module, while the command differs between Darwin and standalone Linux.
+      rebuild() {
+        local target="$DOTFILES_TARGET"
+        [ -z "$target" ] && { echo "rebuild: \$DOTFILES_TARGET is unset" >&2; return 1; }
+        ${rebuildCommand}
+      }
+
+      # Pull the latest dotfiles and apply this host's configuration.
       update() {
-        local dir="$HOME/.dotfiles" target="$DOTFILES_HM_TARGET"
-        [ -z "$target" ] && { echo "update: \$DOTFILES_HM_TARGET is unset" >&2; return 1; }
+        local dir="$HOME/.dotfiles"
         git -C "$dir" pull --rebase --autostash || return 1
-        home-manager switch --flake "$dir#$target"
+        rebuild
       }
 
       # _dotfiles_status: silent unless ~/.dotfiles has drifted. A throttled

@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Bootstrap a machine onto these dotfiles via Nix home-manager.
+# Bootstrap a machine onto these dotfiles. Safe to re-run.
 #
-#   ./bootstrap-nix.sh <user@host>
-#
-# where <user@host> is a key under `homeConfigurations` in flake.nix
-# (e.g. kostyafarber@mac, firmclaw@box). Safe to re-run.
+#   ./bootstrap-nix.sh mac-mini
+#   ./bootstrap-nix.sh macbook
+#   ./bootstrap-nix.sh firmclaw@box
 set -euo pipefail
 
 TARGET="${1:-}"
 REPO="https://github.com/kostyafarber/dotfiles.git"
 DOTDIR="$HOME/.dotfiles"
+DARWIN_REF="github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-rebuild"
 HM_REF="github:nix-community/home-manager/release-25.11"
 
 if [ -z "$TARGET" ]; then
-  echo "usage: $0 <user@host>   (a homeConfigurations key, e.g. kostyafarber@mac)" >&2
+  echo "usage: $0 <mac-mini|macbook|firmclaw@box>" >&2
   exit 1
 fi
 
@@ -31,15 +31,24 @@ if [ ! -d "$DOTDIR/.git" ]; then
 fi
 
 # 3. Git filter: strip the "model" key Claude Code writes into settings.json
+# jq is supplied by the activated Home Manager configuration.
 git -C "$DOTDIR" config filter.claude-settings.clean "jq 'del(.model)'"
 
-# 4. Activate
-echo "==> home-manager switch -> $TARGET"
-nix run "$HM_REF" -- switch -b backup --flake "$DOTDIR#$TARGET"
+# 4. Activate the platform-appropriate output.
+if [ "$(uname -s)" = "Darwin" ]; then
+  case "$TARGET" in
+    macbook|mac-mini) ;;
+    *)
+      echo "Darwin target must be macbook or mac-mini" >&2
+      exit 1
+      ;;
+  esac
 
-cat <<EOF
+  echo "==> nix-darwin switch -> $TARGET"
+  sudo "$(command -v nix)" run "$DARWIN_REF" -- switch --flake "$DOTDIR#$TARGET"
+else
+  echo "==> home-manager switch -> $TARGET"
+  nix run "$HM_REF" -- switch -b backup --flake "$DOTDIR#$TARGET"
+fi
 
-Done. (Optional) make zsh your login shell:
-  echo "\$HOME/.nix-profile/bin/zsh" | sudo tee -a /etc/shells
-  chsh -s "\$HOME/.nix-profile/bin/zsh"
-EOF
+printf '\nDone. Open a new shell, or run: exec zsh\n'

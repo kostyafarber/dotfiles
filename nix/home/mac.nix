@@ -1,6 +1,11 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
-# MacBook. Shared core comes from common.nix; this adds the mac-only bits.
+# Shared Home Manager configuration for Darwin workstations.
 let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";
 
@@ -13,14 +18,8 @@ let
   };
 in
 {
-  home.username = "kostyafarber";
-  home.homeDirectory = "/Users/kostyafarber";
-
   # Mac clipboard image extraction for the Raycast → remote box bridge.
   home.packages = [ pkgs.pngpaste ];
-
-  # .zshenv → every shell: which flake output `update` applies on this host
-  programs.zsh.envExtra = ''export DOTFILES_HM_TARGET="kostyafarber@mac"'';
 
   # nix's git wins on PATH over brew git and ignores Apple's /etc/gitconfig, so
   # it loses the osxkeychain helper the system git had. Re-declare it (mac-only;
@@ -35,26 +34,6 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty/.config/ghostty/themes";
   home.file.".wezterm.lua".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/wezterm/.wezterm.lua";
-  home.file."Library/Application Support/Code/User/settings.json".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/vscode/Library/Application Support/Code/User/settings.json";
-  home.file."Library/Application Support/Code/User/keybindings.json".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/vscode/Library/Application Support/Code/User/keybindings.json";
-
-  # Mac GUI apps that aren't in nixpkgs, installed as brew casks. Declared here
-  # so a home-manager switch converges them like everything else. Removing an
-  # entry does NOT uninstall the cask — do that manually with `brew uninstall`.
-  home.activation.brewCasks =
-    let
-      casks = [ "markedit" "whatsapp" ];
-    in
-    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ -x /opt/homebrew/bin/brew ]; then
-        for cask in ${lib.escapeShellArgs casks}; do
-          /opt/homebrew/bin/brew list --cask "$cask" >/dev/null 2>&1 \
-            || run /opt/homebrew/bin/brew install --cask "$cask"
-        done
-      fi
-    '';
 
   # MarkEdit extensions live inside the app's sandbox container. Real copy, not
   # a store symlink — the sandbox can't follow links out to /nix/store.
@@ -65,9 +44,9 @@ in
     run chmod 644 "$markeditScripts/markedit-preview.js"
   '';
 
-  # MarkEdit as the default app for markdown files (idempotent; needs the app
-  # from the brewCasks hook above to be present).
-  home.activation.markdownDefaultApp = lib.hm.dag.entryAfter [ "brewCasks" ] ''
+  # MarkEdit as the default app for markdown files (idempotent; the workstation
+  # profile installs the cask before Home Manager activation).
+  home.activation.markdownDefaultApp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     if [ -d /Applications/MarkEdit.app ]; then
       run ${pkgs.duti}/bin/duti -s app.cyan.markedit .md all
       run ${pkgs.duti}/bin/duti -s app.cyan.markedit .markdown all

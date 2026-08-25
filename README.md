@@ -1,81 +1,86 @@
 # Dotfiles
 
-A collection of my dotfiles for macOS, managed via GNU Stow. All configuration is version-controlled and automatically symlinked to the correct locations.
+Declarative configuration for two Apple Silicon Macs and an Ubuntu home server.
 
-## Quick Start
+- **nix-darwin** manages macOS defaults, Homebrew, login shells, and host roles.
+- **Home Manager** manages shell tools, editors, tmux, and live dotfile links.
+- **Home Manager standalone** manages the Ubuntu box.
 
-Run the bootstrap script on a fresh machine:
+## Hosts
 
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/kostyafarber/dotfiles/main/bootstrap.sh)"
-```
+| Flake output | Role |
+| --- | --- |
+| `darwinConfigurations.macbook` | Darwin workstation |
+| `darwinConfigurations.mac-mini` | Darwin workstation + always-on host |
+| `homeConfigurations."firmclaw@box"` | Linux server |
 
-The script will:
-- Install Homebrew and essential packages (via Brewfile)
-- Install oh-my-zsh and plugins
-- Install nvm and Node.js
-- Set up all dotfiles using Stow
-- Configure macOS system preferences
+Host modules compose reusable profiles from `nix/profiles/`; they should contain
+only the physical hostname and host-specific differences.
 
-## Packages
+## Bootstrap
 
-- **nvim** - Neovim editor configuration with keybindings and plugins
-- **tmux** - Terminal multiplexer configuration with custom keybindings
-- **zshrc** - Zsh shell configuration with aliases and functions
-- **vscode** - Visual Studio Code settings and keybindings
-- **wezterm** - WezTerm terminal configuration
-- **ghostty** - Ghostty terminal configuration with Catppuccin Latte theme
-- **fastfetch** - System information display configuration
-- **lazygit** - Git UI configuration
-- **claude-code** - Claude Code CLI settings (model selection, permissions, notification hooks)
-- **codex** - Codex CLI skill bridge for shared agent skills
-- **agents** - Shared agent skills used by Claude and Codex
-- **mac** - macOS-specific configurations (Brewfile, system preferences, keybindings)
-
-## Claude Code Settings
-
-Claude Code settings are tracked in `claude-code/.claude/`:
-- `settings.json` - Core preferences (model selection, notification hooks)
-- `settings.local.json` - Tool permissions and allow/deny lists
-
-These files are symlinked to `~/.claude/` via Stow. When you modify settings in Claude Code, the changes automatically appear in the dotfiles repo. Simply commit and push to sync across machines.
-
-The rest of Claude Code's cache (debug logs, project sessions, history) remains local and untracked.
-
-## Managing Brewfile
-
-Your installed packages are tracked in `mac/essential/Brewfile`. To update it after installing new packages:
+On a fresh machine, clone this repository to `~/.dotfiles`, then run:
 
 ```bash
-brew bundle dump --file="$HOME/.dotfiles/mac/essential/Brewfile" --force
-cd ~/.dotfiles
-git add mac/essential/Brewfile
-git commit -m "Update Brewfile with new packages"
-git push
+./bootstrap-nix.sh mac-mini       # new Mac mini
+./bootstrap-nix.sh macbook        # MacBook
+./bootstrap-nix.sh firmclaw@box   # Ubuntu box
 ```
 
-This ensures your package list syncs across machines.
+The bootstrap installs Determinate Nix when needed. On Darwin, nix-homebrew
+installs or adopts Homebrew before nix-darwin applies the declared casks.
 
-```yml
-                  ____________________________________ 
-                 / Welcome to my dotfiles, venture no \
-                 \ further!                           /
-                  ------------------------------------ 
-                       \                    / \  //\
-                        \    |\___/|      /   \//  \\
-                             /0  0  \__  /    //  | \ \    
-                            /     /  \/_/    //   |  \  \  
-                            @_^_@'/   \/_   //    |   \   \ 
-                            //_^_/     \/_ //     |    \    \
-                         ( //) |        \///      |     \     \
-                       ( / /) _|_ /   )  //       |      \     _\
-                     ( // /) '/,_ _ _/  ( ; -.    |    _ _\.-~        .-~~~^-.
-                   (( / / )) ,-{        _      `-.|.-~-.           .~         `.
-                  (( // / ))  '/\      /                 ~-. _ .-~      .-~^-.  \
-                  (( /// ))      `.   {            }                   /      \  \
-                   (( / ))     .----~-.\        \-'                 .~         \  `. \^-.
-                              ///.----..>        \             _ -~             `.  ^-`  ^-_
-                                ///-._ _ _ _ _ _ _}^ - - - - ~                     ~-- ,.-~
-                                                                                   /.-~
+## Day-to-day commands
 
-``` 
+```bash
+rebuild  # apply this host's current checkout
+update   # pull with rebase/autostash, then rebuild
+hms      # temporary compatibility alias for rebuild
+```
+
+Darwin rebuilds use `sudo darwin-rebuild`; the box uses standalone Home Manager.
+The target is selected by each host module through `DOTFILES_TARGET`.
+
+## Configuration layout
+
+```text
+flake.nix
+nix/
+├── darwin/common.nix
+├── home/
+│   ├── common.nix
+│   ├── mac.nix
+│   └── box.nix
+├── hosts/
+│   ├── macbook.nix
+│   └── mac-mini.nix
+└── profiles/
+    ├── workstation.nix
+    ├── always-on.nix
+    └── syncthing.nix
+```
+
+Editable application configuration remains in this repository and is linked by
+Home Manager with out-of-store symlinks.
+
+## Syncthing and Obsidian
+
+Home Manager runs Syncthing on both Macs while preserving the local Syncthing
+identity and mutable peer configuration. The Obsidian vault is:
+
+```text
+~/Documents/KostyaVault
+```
+
+Pair a new machine through Syncthing once it has generated its unique device ID.
+On every newly paired device, set `KostyaVault` to staggered file versioning with
+one year of retention; this is local device state until peer IDs are declared in
+Nix. Syncthing propagates changes and deletions, so it is not a substitute for an
+independent backup.
+
+## Homebrew migration
+
+`nix/profiles/workstation.nix` is the authoritative GUI application list.
+`mac/essential/Brewfile` is a temporary legacy inventory and must not be applied
+on a new machine. nix-darwin intentionally does not uninstall undeclared casks;
+pruning installed applications is an explicit manual step.
