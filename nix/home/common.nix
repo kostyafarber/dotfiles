@@ -362,7 +362,9 @@ in
       drc = "nvim $HOME/.dotfiles";
       vrc = "nvim $HOME/.zshrc";
       crc = "nvim $HOME/.claude";
-      src = "exec zsh";
+      # Home Manager session variables are guarded against double-sourcing.
+      # Clear both guards so long-lived tmux panes pick up a new generation.
+      src = "unset __HM_SESS_VARS_SOURCED __HM_ZSH_SESS_VARS_SOURCED; exec zsh";
       salias = "alias | fzf --preview 'echo {}' --preview-window=up:3:wrap";
 
       # modern CLI replacements (eza/bat) + oh-my-zsh conveniences
