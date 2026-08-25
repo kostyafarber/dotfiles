@@ -30,6 +30,7 @@ return {
                 "stylua",
                 "ruff",
                 "eslint_d",
+                "elp",
             },
             auto_update = false,
             run_on_start = true,

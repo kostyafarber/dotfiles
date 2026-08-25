@@ -2,6 +2,7 @@ return {
     "neovim/nvim-lspconfig",
     event = { "BufReadPre", "BufNewFile" },
     dependencies = {
+        "williamboman/mason.nvim",
         "saghen/blink.cmp",
         { "antosha417/nvim-lsp-file-operations", config = true },
         { "folke/lazydev.nvim", ft = "lua", opts = {} },
@@ -38,12 +39,16 @@ return {
             },
         })
 
-        vim.lsp.config("erlang_ls", {})
+        vim.lsp.config("elp", {
+            cmd = { "elp", "server" },
+            filetypes = { "erlang" },
+            root_markers = { "rebar.config", "erlang.mk", ".git" },
+        })
 
         vim.lsp.enable({
             "ts_ls", "lua_ls", "html", "cssls", "tailwindcss",
             "svelte", "graphql", "emmet_ls", "prismals", "pyright", "ruff",
-            "rust_analyzer", "erlang_ls",
+            "rust_analyzer", "elp",
         })
 
         vim.lsp.config("pyright", {

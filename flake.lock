@@ -76,11 +76,19 @@
         "systems": "systems"
       },
       "locked": {
+<<<<<<< Updated upstream
         "lastModified": 1787625946,
         "narHash": "sha256-KRwsVf37zEuVCgDih4RFRzVK+Hp0Ah4THXY3VRpUbpg=",
         "owner": "modem-dev",
         "repo": "hunk",
         "rev": "15ff46225c088e07eb0591df8f2cf672c919dfc1",
+=======
+        "lastModified": 1787668521,
+        "narHash": "sha256-66e38smuf8uiFAfuQ3Gw+SHpTeuqJ5C7BciYHwgMKuc=",
+        "owner": "modem-dev",
+        "repo": "hunk",
+        "rev": "e1833f4ed94e1166426ef425c9280cc31ab84bd7",
+>>>>>>> Stashed changes
         "type": "github"
       },
       "original": {
