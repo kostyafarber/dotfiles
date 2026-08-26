@@ -16,10 +16,21 @@ let
     hash = "sha256-UnOLTN4Xj5kpH9tw2WEXhLCheTmzctx+LA+caAOc4aA=";
     stripRoot = false; # zip has a __MACOSX sibling dir, so can't strip
   };
+
+  # TeX Live's latexminted helper is not compatible with Homebrew Python 3.14.
+  # Keep a pinned Python + Pygments ahead of Homebrew for assignment builds.
+  latexPython = pkgs.python313.withPackages (pythonPackages: [ pythonPackages.pygments ]);
 in
 {
-  # Mac clipboard image extraction for the Raycast → remote box bridge.
-  home.packages = [ pkgs.pngpaste ];
+  home.packages = [
+    latexPython
+    # Mac clipboard image extraction for the Raycast → remote box bridge.
+    pkgs.pngpaste
+  ];
+
+  # Nix-managed Zsh does not run macOS path_helper, so declare MacTeX's active
+  # distribution path explicitly instead of relying on /etc/paths.d/TeX.
+  home.sessionPath = [ "/Library/TeX/texbin" ];
 
   # nix's git wins on PATH over brew git and ignores Apple's /etc/gitconfig, so
   # it loses the osxkeychain helper the system git had. Re-declare it (mac-only;

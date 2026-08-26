@@ -18,6 +18,7 @@
       "ghostty"
       "google-chrome"
       "markedit"
+      "obsidian"
       "raycast"
       "rectangle"
       "signal"
