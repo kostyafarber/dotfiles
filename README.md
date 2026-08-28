@@ -41,6 +41,15 @@ hms      # temporary compatibility alias for rebuild
 Darwin rebuilds use `sudo darwin-rebuild`; Beelink uses standalone Home Manager.
 The target is selected by each host module through `DOTFILES_TARGET`.
 
+SSH aliases on either Mac are:
+
+```bash
+ssh mini         # Mac mini over Bonjour
+ssh beelink      # Ubuntu server over Tailscale MagicDNS
+ssh beelink-dev  # Beelink plus local forwards for ports 5173 and 5174
+serverf          # choose a Beelink repo and attach its tmux session
+```
+
 ## Configuration layout
 
 ```text
