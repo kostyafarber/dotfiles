@@ -158,16 +158,5 @@ in
 
     # work config last (it applies keybindings; mirrors your old zshrc ordering)
     [ -f "$HOME/.work" ] && source "$HOME/.work"
-
-    # serverf: fuzzy-pick a repo on the Beelink and attach/create its tmux session.
-    serverf() {
-      local selected
-      selected=$(ssh beelink 'find "$HOME/repos" -mindepth 1 -maxdepth 1 -type d ! -name ".*" 2>/dev/null' \
-        | fzf --reverse --border --height=60% --prompt="beelink project> " ''${1:+--query "$1"})
-      [[ -z $selected ]] && return 0
-      local name=$(basename "$selected")
-      name=''${name//./_}
-      ssh -t beelink "tmux new -A -s \"$name\" -c \"$selected\""
-    }
   '';
 }

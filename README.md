@@ -47,7 +47,6 @@ SSH aliases on either Mac are:
 ssh mini         # Mac mini over Bonjour
 ssh beelink      # Ubuntu server over Tailscale MagicDNS
 ssh beelink-dev  # Beelink plus local forwards for ports 5173 and 5174
-serverf          # choose a Beelink repo and attach its tmux session
 ```
 
 ## Configuration layout

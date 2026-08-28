@@ -329,9 +329,8 @@ in
     autosuggestion.enable = true;
     defaultKeymap = "viins"; # set -o vi
 
-    # PATH for EVERY shell, including non-login SSH commands — `serverf` runs
-    # `ssh beelink "tmux ..."`, which only sources .zshenv. Put Nix-managed tools,
-    # local scripts, Pi's installer prefix, and rustup on PATH there.
+    # PATH for every shell, including non-login SSH commands. Put Nix-managed
+    # tools, local scripts, Pi's installer prefix, and rustup on PATH there.
     envExtra = ''
       # Move managed tools to the front even when a parent process inherited
       # the same directories later in PATH (for example Codex or an SSH shell).
