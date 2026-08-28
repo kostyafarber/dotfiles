@@ -14,13 +14,13 @@ let
   dotfiles = "${config.home.homeDirectory}/.dotfiles";
 
   # Clipboard sink for tmux copy-mode. On macOS we pipe to pbcopy; on Linux
-  # (headless box) we rely on tmux `set-clipboard on` (OSC52) and use a no-op
+  # (headless server) we rely on tmux `set-clipboard on` (OSC52) and use a no-op
   # sink so the binding still parses.
   copyCmd = if pkgs.stdenv.isDarwin then "pbcopy" else "cat";
 
   # Per-platform accent plus the physical host name in the tmux status bar.
   hostColor = if pkgs.stdenv.isDarwin then "#D7BA7D" else "#7AA2D7";
-  hostLabel = if osConfig != null then osConfig.networking.hostName else "box";
+  hostLabel = if osConfig != null then osConfig.networking.hostName else "beelink";
 
   rebuildCommand =
     if pkgs.stdenv.isDarwin then
@@ -176,7 +176,7 @@ in
   # hunk — terminal diff viewer for reviewing changes, especially agent-authored
   # ones (`hunk diff` for the working tree, `hunk show` for the last commit,
   # `hunk diff --watch` to live-reload while an agent keeps editing). On both
-  # hosts: the box (where codex runs) and the mac.
+  # hosts: the Beelink server (where codex runs) and the Mac.
   # ---------------------------------------------------------------------------
   imports = [ inputs.hunk.homeManagerModules.default ];
 
@@ -185,7 +185,7 @@ in
 
     # The module defaults `package` to `pkgs.hunk` (an overlay we don't add), so
     # point it at the flake's output for whichever host we're on — resolves to
-    # aarch64-darwin on the mac, x86_64-linux on the box.
+    # aarch64-darwin on the Mac, x86_64-linux on the Beelink.
     package = inputs.hunk.packages.${pkgs.stdenv.hostPlatform.system}.hunk;
 
     # Leave git's pager alone — you drive git through lazygit + explicit
@@ -329,8 +329,8 @@ in
     autosuggestion.enable = true;
     defaultKeymap = "viins"; # set -o vi
 
-    # PATH for EVERY shell, including non-login ssh commands — clawf/clawsh run
-    # `ssh box "tmux ..."`, which only sources .zshenv. Put nix-managed tools,
+    # PATH for EVERY shell, including non-login SSH commands — `serverf` runs
+    # `ssh beelink "tmux ..."`, which only sources .zshenv. Put Nix-managed tools,
     # local scripts, Pi's installer prefix, and rustup on PATH there.
     envExtra = ''
       # Move managed tools to the front even when a parent process inherited
@@ -362,7 +362,7 @@ in
       c = "claude";
       cs = "claude --dangerously-skip-permissions";
       csf = "claude --dangerously-skip-permissions --model haiku";
-      # codex in full-auto: no approval prompts, no sandbox (mainly for the box)
+      # codex in full-auto: no approval prompts, no sandbox (mainly for Beelink)
       cxs = "codex --dangerously-bypass-approvals-and-sandbox";
       pi-install = "curl -fsSL https://pi.dev/install.sh | sh";
 

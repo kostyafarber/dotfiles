@@ -10,5 +10,5 @@ shell-integration-features = ssh-env,ssh-terminfo
 
 # Don't prompt every time a remote (tmux/nvim over SSH) reads the clipboard via OSC 52.
 # allow = silently permit, deny = silently block. Trade-off: any host you SSH into can
-# read this Mac's clipboard without asking. Fine for your own box.
+# read this Mac's clipboard without asking. Fine for your own Beelink server.
 clipboard-read = allow

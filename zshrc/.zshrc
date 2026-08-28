@@ -149,18 +149,17 @@ alias c='claude'
 alias cs='claude --dangerously-skip-permissions'
 alias csf='claude --dangerously-skip-permissions --model haiku'
 
-# clawf: fuzzy-pick a repo ON the box and attach/create its tmux session.
-# Repo list comes from the box; fzf runs locally (the box has no fzf); tmux
-# runs on the box, so the session persists across disconnects.
-# Optional arg pre-fills the fzf query, e.g. `clawf ladybird`.
-clawf() {
+# serverf: fuzzy-pick a repo on the Beelink and attach/create its tmux session.
+# The repo list comes from the server; fzf runs locally; tmux runs remotely so
+# the session persists across disconnects. An argument pre-fills the query.
+serverf() {
   local selected
-  selected=$(ssh clawsh 'find "$HOME/repos" -mindepth 1 -maxdepth 1 -type d ! -name ".*" 2>/dev/null' \
-    | fzf --reverse --border --height=60% --prompt="box project> " ${1:+--query "$1"})
+  selected=$(ssh beelink 'find "$HOME/repos" -mindepth 1 -maxdepth 1 -type d ! -name ".*" 2>/dev/null' \
+    | fzf --reverse --border --height=60% --prompt="beelink project> " ${1:+--query "$1"})
   [[ -z $selected ]] && return 0
   local name=$(basename "$selected")
   name=${name//./_}
-  ssh -t clawsh "tmux new -A -s \"$name\" -c \"$selected\""
+  ssh -t beelink "tmux new -A -s \"$name\" -c \"$selected\""
 }
 
 # git

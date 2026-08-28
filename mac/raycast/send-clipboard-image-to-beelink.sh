@@ -2,13 +2,13 @@
 
 # Required parameters:
 # @raycast.schemaVersion 1
-# @raycast.title Send Clipboard Image to Box
+# @raycast.title Send Clipboard Image to Beelink
 # @raycast.mode silent
 
 # Optional parameters:
 # @raycast.icon 🖼️
-# @raycast.packageName Box
-# @raycast.description Upload the clipboard image to the box and copy its remote path.
+# @raycast.packageName Beelink
+# @raycast.description Upload the clipboard image to Beelink and copy its remote path.
 
 set -euo pipefail
 
@@ -37,7 +37,7 @@ ssh \
   -o BatchMode=yes \
   -o ClearAllForwardings=yes \
   -o ConnectTimeout=10 \
-  clawsh \
+  beelink \
   "install -d -m 700 '${remote_dir}'"
 scp \
   -q \
@@ -45,5 +45,5 @@ scp \
   -o ClearAllForwardings=yes \
   -o ConnectTimeout=10 \
   "$local_path" \
-  "clawsh:${remote_path}"
+  "beelink:${remote_path}"
 printf '%s' "$remote_path" | pbcopy

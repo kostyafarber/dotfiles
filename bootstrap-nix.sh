@@ -3,7 +3,7 @@
 #
 #   ./bootstrap-nix.sh mac-mini
 #   ./bootstrap-nix.sh macbook
-#   ./bootstrap-nix.sh firmclaw@box
+#   ./bootstrap-nix.sh kostyafarber@beelink
 set -euo pipefail
 
 TARGET="${1:-}"
@@ -13,7 +13,7 @@ DARWIN_REF="github:nix-darwin/nix-darwin/nix-darwin-25.11#darwin-rebuild"
 HM_REF="github:nix-community/home-manager/release-25.11"
 
 if [ -z "$TARGET" ]; then
-  echo "usage: $0 <mac-mini|macbook|firmclaw@box>" >&2
+  echo "usage: $0 <mac-mini|macbook|kostyafarber@beelink>" >&2
   exit 1
 fi
 

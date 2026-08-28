@@ -4,7 +4,7 @@ Declarative configuration for two Apple Silicon Macs and an Ubuntu home server.
 
 - **nix-darwin** manages macOS defaults, Homebrew, login shells, and host roles.
 - **Home Manager** manages shell tools, editors, tmux, and live dotfile links.
-- **Home Manager standalone** manages the Ubuntu box.
+- **Home Manager standalone** manages the Ubuntu Beelink server.
 
 ## Hosts
 
@@ -12,7 +12,7 @@ Declarative configuration for two Apple Silicon Macs and an Ubuntu home server.
 | --- | --- |
 | `darwinConfigurations.macbook` | Darwin workstation |
 | `darwinConfigurations.mac-mini` | Darwin workstation + always-on host |
-| `homeConfigurations."firmclaw@box"` | Linux server |
+| `homeConfigurations."kostyafarber@beelink"` | Linux server |
 
 Host modules compose reusable profiles from `nix/profiles/`; they should contain
 only the physical hostname and host-specific differences.
@@ -24,7 +24,7 @@ On a fresh machine, clone this repository to `~/.dotfiles`, then run:
 ```bash
 ./bootstrap-nix.sh mac-mini       # new Mac mini
 ./bootstrap-nix.sh macbook        # MacBook
-./bootstrap-nix.sh firmclaw@box   # Ubuntu box
+./bootstrap-nix.sh kostyafarber@beelink # Ubuntu Beelink
 ```
 
 The bootstrap installs Determinate Nix when needed. On Darwin, nix-homebrew
@@ -38,7 +38,7 @@ update   # pull with rebase/autostash, then rebuild
 hms      # temporary compatibility alias for rebuild
 ```
 
-Darwin rebuilds use `sudo darwin-rebuild`; the box uses standalone Home Manager.
+Darwin rebuilds use `sudo darwin-rebuild`; Beelink uses standalone Home Manager.
 The target is selected by each host module through `DOTFILES_TARGET`.
 
 ## Configuration layout
@@ -50,7 +50,7 @@ nix/
 ├── home/
 │   ├── common.nix
 │   ├── mac.nix
-│   └── box.nix
+│   └── beelink.nix
 ├── hosts/
 │   ├── macbook.nix
 │   └── mac-mini.nix

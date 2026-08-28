@@ -36,7 +36,7 @@
       ...
     }:
     let
-      # Standalone Home Manager remains appropriate for the Ubuntu box.
+      # Standalone Home Manager remains appropriate for the Ubuntu server.
       mkHome =
         { system, hostModule }:
         home-manager.lib.homeManagerConfiguration {
@@ -70,6 +70,12 @@
       };
 
       homeConfigurations = {
+        "kostyafarber@beelink" = mkHome {
+          system = "x86_64-linux";
+          hostModule = ./nix/home/beelink.nix;
+        };
+
+        # Temporary rollback target; remove after the account migration passes.
         "firmclaw@box" = mkHome {
           system = "x86_64-linux";
           hostModule = ./nix/home/box.nix;

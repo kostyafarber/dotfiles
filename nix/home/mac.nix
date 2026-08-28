@@ -24,7 +24,7 @@ in
 {
   home.packages = [
     latexPython
-    # Mac clipboard image extraction for the Raycast → remote box bridge.
+    # Mac clipboard image extraction for the Raycast → Beelink bridge.
     pkgs.pngpaste
   ];
 
@@ -37,6 +37,58 @@ in
   # the helper binary ships with nixpkgs git) so HTTPS pushes keep using the
   # keychain instead of prompting.
   programs.git.settings.credential.helper = "osxkeychain";
+
+  # Stable machine aliases. Normal Beelink sessions do not claim development
+  # ports; use `ssh beelink-dev` only when those forwards are needed.
+  programs.ssh = {
+    enable = true;
+    enableDefaultConfig = false;
+    matchBlocks = {
+      mini = {
+        hostname = "mac-mini.local";
+        user = "kostyafarber";
+      };
+      beelink = {
+        hostname = "beelink";
+        user = "kostyafarber";
+        forwardAgent = true;
+      };
+      beelink-dev = {
+        hostname = "beelink";
+        user = "kostyafarber";
+        forwardAgent = true;
+        localForwards = [
+          {
+            bind.port = 5173;
+            host.address = "localhost";
+            host.port = 5173;
+          }
+          {
+            bind.port = 5174;
+            host.address = "localhost";
+            host.port = 5174;
+          }
+        ];
+      };
+      home-server-migration = {
+        hostname = "home-server";
+        user = "firmclaw";
+      };
+      "10.211.55.3" = {
+        hostname = "10.211.55.3";
+        user = "pararells";
+      };
+      "github.com" = {
+        hostname = "ssh.github.com";
+        port = 443;
+      };
+      "*" = {
+        addKeysToAgent = "yes";
+        identityFile = "~/.ssh/id_ed25519";
+        extraOptions.UseKeychain = "yes";
+      };
+    };
+  };
 
   # GUI app configs (mac-only), kept editable in-repo via out-of-store symlinks
   xdg.configFile."ghostty/config".source =
@@ -81,11 +133,11 @@ in
   programs.zsh.initContent = lib.mkAfter ''
     # --- bridge to existing mac-only shell config (not yet Nixified) ---
 
-    # secret + work env/aliases (your `clawsh` alias lives in ~/.secrets)
+    # secret + work environment
     [ -f "$HOME/.secrets" ] && source "$HOME/.secrets"
 
     # Homebrew on PATH (casks/GUI tools + ladybird deps), but keep nix-managed
-    # tools ahead of brew so versions stay pinned + consistent with the box.
+    # tools ahead of brew so versions stay pinned + consistent with Beelink.
     if [ -x /opt/homebrew/bin/brew ]; then
       eval "$(/opt/homebrew/bin/brew shellenv)"
       export PATH="${config.home.profileDirectory}/bin:$PATH"
@@ -111,15 +163,15 @@ in
     # work config last (it applies keybindings; mirrors your old zshrc ordering)
     [ -f "$HOME/.work" ] && source "$HOME/.work"
 
-    # clawf: fuzzy-pick a repo ON the box and attach/create its tmux session.
-    clawf() {
+    # serverf: fuzzy-pick a repo on the Beelink and attach/create its tmux session.
+    serverf() {
       local selected
-      selected=$(ssh clawsh 'find "$HOME/repos" -mindepth 1 -maxdepth 1 -type d ! -name ".*" 2>/dev/null' \
-        | fzf --reverse --border --height=60% --prompt="box project> " ''${1:+--query "$1"})
+      selected=$(ssh beelink 'find "$HOME/repos" -mindepth 1 -maxdepth 1 -type d ! -name ".*" 2>/dev/null' \
+        | fzf --reverse --border --height=60% --prompt="beelink project> " ''${1:+--query "$1"})
       [[ -z $selected ]] && return 0
       local name=$(basename "$selected")
       name=''${name//./_}
-      ssh -t clawsh "tmux new -A -s \"$name\" -c \"$selected\""
+      ssh -t beelink "tmux new -A -s \"$name\" -c \"$selected\""
     }
   '';
 }

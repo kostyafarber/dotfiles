@@ -32,7 +32,7 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 const MAX_TEXT_CHARS = 100_000
 const MAX_HISTORY_IMAGES = 30
 const RAYCAST_CLIPBOARD_DIR = join(homedir(), 'Library', 'Caches', 'com.raycast.macos', 'Clipboard')
-const BOX_CLIPBOARD_DIR = join(tmpdir(), 'clipboard-images')
+const REMOTE_CLIPBOARD_DIR = join(tmpdir(), 'clipboard-images')
 
 type ClipboardImage = {
 	bytes: Uint8Array
@@ -350,7 +350,7 @@ async function loadClipboardCandidates(
 		await Promise.all(
 			[
 				{ directory: RAYCAST_CLIPBOARD_DIR, description: 'Raycast image history' },
-				{ directory: BOX_CLIPBOARD_DIR, description: 'Box image inbox' },
+				{ directory: REMOTE_CLIPBOARD_DIR, description: 'Remote image inbox' },
 			].map(async ({ directory, description }) => {
 				try {
 					const entries = await readdir(directory, { withFileTypes: true })
