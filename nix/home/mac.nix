@@ -70,10 +70,6 @@ in
           }
         ];
       };
-      home-server-migration = {
-        hostname = "home-server";
-        user = "firmclaw";
-      };
       "10.211.55.3" = {
         hostname = "10.211.55.3";
         user = "pararells";

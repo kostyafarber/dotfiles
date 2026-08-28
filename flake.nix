@@ -74,12 +74,6 @@
           system = "x86_64-linux";
           hostModule = ./nix/home/beelink.nix;
         };
-
-        # Temporary rollback target; remove after the account migration passes.
-        "firmclaw@box" = mkHome {
-          system = "x86_64-linux";
-          hostModule = ./nix/home/box.nix;
-        };
       };
     };
 }
