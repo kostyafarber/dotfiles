@@ -1,4 +1,11 @@
-{ config, pkgs, lib, inputs, osConfig ? null, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  inputs,
+  osConfig ? null,
+  ...
+}:
 
 let
   # Live path to the dotfiles checkout. Used for configs we want to stay
@@ -41,9 +48,10 @@ in
     htop
     curl
     wget
+    gh
     gnumake
     unzip
-    uv          # replaces conda
+    uv # replaces conda
     nodejs_24
     erlang
     rebar3
@@ -62,8 +70,7 @@ in
     NPM_CONFIG_PREFIX = "${config.home.homeDirectory}/.npm-global";
 
     # prefix+f should offer PR worktrees (made by `pco`) next to real clones
-    TMUX_SESSIONIZER_PATHS =
-      "${config.home.homeDirectory}/repos:${config.home.homeDirectory}/worktrees";
+    TMUX_SESSIONIZER_PATHS = "${config.home.homeDirectory}/repos:${config.home.homeDirectory}/worktrees";
   };
 
   # Put the npm-global bin dir on PATH. This is where Pi's installer and other
@@ -143,28 +150,27 @@ in
   # Keep ignored node_modules in local Pi extensions synchronized with their
   # checked-in lockfiles. The marker avoids reinstalling on every switch; npm ls
   # also catches partially deleted or otherwise broken dependency trees.
-  home.activation.piExtensionDependencies =
-    lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      extensionRoot=${lib.escapeShellArg "${dotfiles}/pi/.pi/agent/extensions"}
-      if [ -d "$extensionRoot" ]; then
-        for lockfile in "$extensionRoot"/*/package-lock.json; do
-          [ -e "$lockfile" ] || continue
-          extensionDir="''${lockfile%/package-lock.json}"
-          marker="$extensionDir/node_modules/.pi-package-lock.json"
+  home.activation.piExtensionDependencies = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    extensionRoot=${lib.escapeShellArg "${dotfiles}/pi/.pi/agent/extensions"}
+    if [ -d "$extensionRoot" ]; then
+      for lockfile in "$extensionRoot"/*/package-lock.json; do
+        [ -e "$lockfile" ] || continue
+        extensionDir="''${lockfile%/package-lock.json}"
+        marker="$extensionDir/node_modules/.pi-package-lock.json"
 
-          if ! ${pkgs.diffutils}/bin/cmp -s "$lockfile" "$marker" \
-            || ! ${pkgs.nodejs_24}/bin/npm --prefix "$extensionDir" ls --omit=dev --depth=0 >/dev/null 2>&1; then
-            echo "Installing Pi extension dependencies: ''${extensionDir##*/}"
-            if (cd "$extensionDir" && run ${pkgs.nodejs_24}/bin/npm ci --omit=dev --no-audit --no-fund); then
-              run ${pkgs.coreutils}/bin/cp "$lockfile" "$marker"
-            else
-              echo "Failed to install Pi extension dependencies in $extensionDir" >&2
-              exit 1
-            fi
+        if ! ${pkgs.diffutils}/bin/cmp -s "$lockfile" "$marker" \
+          || ! ${pkgs.nodejs_24}/bin/npm --prefix "$extensionDir" ls --omit=dev --depth=0 >/dev/null 2>&1; then
+          echo "Installing Pi extension dependencies: ''${extensionDir##*/}"
+          if (cd "$extensionDir" && run ${pkgs.nodejs_24}/bin/npm ci --omit=dev --no-audit --no-fund); then
+            run ${pkgs.coreutils}/bin/cp "$lockfile" "$marker"
+          else
+            echo "Failed to install Pi extension dependencies in $extensionDir" >&2
+            exit 1
           fi
-        done
-      fi
-    '';
+        fi
+      done
+    fi
+  '';
 
   # ---------------------------------------------------------------------------
   # hunk — terminal diff viewer for reviewing changes, especially agent-authored
@@ -192,7 +198,7 @@ in
     # reproduces it; catppuccin-latte matches your fzf palette in this file.
     settings = {
       theme = "catppuccin-latte";
-      mode = "auto";          # split | stack | auto (responsive)
+      mode = "auto"; # split | stack | auto (responsive)
       line_numbers = true;
       menu_bar = false;
       watch = false;
@@ -209,8 +215,7 @@ in
     viAlias = true;
     vimAlias = true;
   };
-  xdg.configFile."nvim".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/nvim/.config/nvim";
+  xdg.configFile."nvim".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/nvim/.config/nvim";
 
   # ---------------------------------------------------------------------------
   # tmux — module handles prefix/mouse/vi; extraConfig carries your bindings.
@@ -224,7 +229,10 @@ in
     escapeTime = 10;
     historyLimit = 50000;
     terminal = "tmux-256color";
-    plugins = with pkgs.tmuxPlugins; [ sensible pain-control ];
+    plugins = with pkgs.tmuxPlugins; [
+      sensible
+      pain-control
+    ];
     extraConfig = ''
       # Preserve modified keys for Pi and other TUIs
       set -g extended-keys on
@@ -305,13 +313,11 @@ in
   # dark/light theme switcher for nvim + ghostty (`theme dark|light|toggle`)
   home.file.".local/bin/theme".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/theme";
-  home.file.".local/bin/tt".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/tt";
+  home.file.".local/bin/tt".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/tt";
 
   # check a GitHub PR out from anywhere, into its own worktree + tmux session
   # (`pco <url>`, `pco 123`, `pco ls`, `pco rm 123`)
-  home.file.".local/bin/pco".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/pco";
+  home.file.".local/bin/pco".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/pco";
 
   # ---------------------------------------------------------------------------
   # zsh — lean: oh-my-zsh dropped (prompt = oh-my-posh, `z` = zoxide,
