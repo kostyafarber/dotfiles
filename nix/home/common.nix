@@ -18,9 +18,16 @@ let
   # sink so the binding still parses.
   copyCmd = if pkgs.stdenv.isDarwin then "pbcopy" else "cat";
 
-  # Per-platform accent plus the physical host name in the tmux status bar.
-  hostColor = if pkgs.stdenv.isDarwin then "#D7BA7D" else "#7AA2D7";
+  # Physical host identity in the tmux status bar. Distinct accents make the
+  # local MacBook, remote Mac mini, and Beelink recognizable at a glance.
   hostLabel = if osConfig != null then osConfig.networking.hostName else "beelink";
+  hostColor =
+    if hostLabel == "macbook" then
+      "#D7BA7D"
+    else if hostLabel == "mac-mini" then
+      "#7DC4A4"
+    else
+      "#7AA2D7";
 
   rebuildCommand =
     if pkgs.stdenv.isDarwin then
@@ -403,6 +410,13 @@ in
     };
 
     initContent = ''
+      # Interactive SSH sessions on always-on hosts live in one persistent tmux
+      # session. Non-interactive SSH commands remain unaffected.
+      if [[ -n "$SSH_TTY" && -z "$TMUX" && "$NO_AUTO_TMUX" != 1 ]] && \
+         [[ "$DOTFILES_TARGET" == "mac-mini" || "$DOTFILES_TARGET" == "kostyafarber@beelink" ]]; then
+        exec tmux new-session -A -s main
+      fi
+
       # sane option previously set by oh-my-zsh
       setopt AUTO_CD
 

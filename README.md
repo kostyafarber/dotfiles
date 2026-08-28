@@ -49,6 +49,17 @@ ssh beelink      # Ubuntu server over Tailscale MagicDNS
 ssh beelink-dev  # Beelink plus local forwards for ports 5173 and 5174
 ```
 
+Interactive SSH sessions on the Mac mini and Beelink automatically attach or
+create the tmux session `main`. To bypass tmux for recovery:
+
+```bash
+ssh -t beelink 'NO_AUTO_TMUX=1 zsh -il'
+ssh -t mini 'NO_AUTO_TMUX=1 zsh -il'
+```
+
+The tmux status bar identifies each host by label and color: MacBook is gold,
+Mac mini is green, and Beelink is blue.
+
 ## Configuration layout
 
 ```text
