@@ -69,7 +69,8 @@ nix/
 ├── home/
 │   ├── common.nix
 │   ├── mac.nix
-│   └── beelink.nix
+│   ├── beelink.nix
+│   └── syncthing.nix
 ├── hosts/
 │   ├── macbook.nix
 │   └── mac-mini.nix
@@ -82,24 +83,21 @@ nix/
 Editable application configuration remains in this repository and is linked by
 Home Manager with out-of-store symlinks.
 
-## Syncthing and Obsidian
+## Syncthing
 
-Home Manager runs Syncthing on both Macs while preserving the local Syncthing
-identity and mutable peer configuration. The Obsidian vault is:
+`nix/home/syncthing.nix` declares the service, Tailscale-only peer addresses,
+and folder topology. Each host retains its own local Syncthing identity and
+database.
 
-```text
-~/Documents/KostyaVault
-```
+| Folder | MacBook | Mac mini | Beelink |
+| --- | --- | --- | --- |
+| `KostyaVault` | `~/Documents/KostyaVault` (send/receive) | `~/Documents/KostyaVault` (send/receive) | `~/obsidian/KostyaVault` (receive-only, one-year staggered versioning) |
+| `maker` | `~/repos/maker` (send/receive) | Not configured | `~/maker` (send/receive) |
 
-Pair a new machine through Syncthing once it has generated its unique device ID.
-On every newly paired device, set `KostyaVault` to staggered file versioning with
-one year of retention; this is local device state until peer IDs are declared in
-Nix. Syncthing propagates changes and deletions, so it is not a substitute for an
-independent backup.
+Syncthing is replication, not an independent backup.
 
-## Homebrew migration
+## Homebrew
 
 `nix/profiles/workstation.nix` is the authoritative GUI application list.
-`mac/essential/Brewfile` is a temporary legacy inventory and must not be applied
-on a new machine. nix-darwin intentionally does not uninstall undeclared casks;
-pruning installed applications is an explicit manual step.
+`mac/essential/Brewfile` is a legacy inventory and is not part of bootstrap.
+nix-darwin does not remove undeclared casks.

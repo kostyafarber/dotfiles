@@ -31,6 +31,8 @@ let
   ];
 in
 {
+  imports = [ ./syncthing.nix ];
+
   home.username = "kostyafarber";
   home.homeDirectory = "/home/kostyafarber";
   home.packages = [ pkgs.xorg-server ];
