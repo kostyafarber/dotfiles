@@ -149,6 +149,8 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/settings.json";
   home.file.".pi/agent/extensions".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/extensions";
+  home.file.".pi/agent/skills/worktree".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/skills/worktree";
   home.file.".pi/agent/prompts".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/prompts";
   home.file.".pi/agent/themes".source =
@@ -325,6 +327,16 @@ in
   # check a GitHub PR out from anywhere, into its own worktree + tmux session
   # (`pco <url>`, `pco 123`, `pco ls`, `pco rm 123`)
   home.file.".local/bin/pco".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/pco";
+
+  # ---------------------------------------------------------------------------
+  # Project development environments — activate trusted .envrc files on cd and
+  # cache Nix flake dev shells between entries.
+  # ---------------------------------------------------------------------------
+  programs.direnv = {
+    enable = true;
+    enableZshIntegration = true;
+    nix-direnv.enable = true;
+  };
 
   # ---------------------------------------------------------------------------
   # zsh — lean: oh-my-zsh dropped (prompt = oh-my-posh, `z` = zoxide,
