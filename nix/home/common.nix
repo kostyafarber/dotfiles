@@ -149,6 +149,10 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/settings.json";
   home.file.".pi/agent/extensions".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/extensions";
+  home.file.".pi/agent/bin/shift-remote-e2e".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/bin/shift-remote-e2e";
+  home.file.".pi/agent/skills/shift-remote-e2e".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/skills/shift-remote-e2e";
   home.file.".pi/agent/skills/worktree".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/skills/worktree";
   home.file.".pi/agent/prompts".source =
