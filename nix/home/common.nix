@@ -55,7 +55,9 @@ in
     htop
     curl
     wget
-    gh
+    # gh from unstable: stable 25.11 is pinned at 2.93, and `gh pr comment --attach`
+    # (the desktop record-repro flow) needs 2.99+.
+    inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.gh
     gnumake
     unzip
     uv # replaces conda
