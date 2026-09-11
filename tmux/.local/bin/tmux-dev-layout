@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+# Open a new window with the "dev" pane layout, all panes cwd'd to a dir:
+#
+#   ┌──────────────────────────┬────────┐
+#   │                          │        │
+#   │                     65%  │        │
+#   ├──────────────────────────┤  26%   │
+#   │                     35%  │        │
+#   └──────────────────────────┴────────┘
+#
+# usage: tmux-dev-layout [dir] [top-left-cmd] [bottom-left-cmd] [right-cmd]
+#   Pane commands are optional; omitted panes are plain shells.
+#   e.g. tmux-dev-layout . nvim 'yarn dev' claude
+#
+# Splits the current window in place. Refuses if it is already split.
+# Outside tmux: creates/attaches a session named after the dir and splits its window.
+
+set -euo pipefail
+
+dir=$(cd "${1:-$PWD}" && pwd)
+top_cmd=${2:-}; bottom_cmd=${3:-}; right_cmd=${4:-}
+
+if [[ -n ${TMUX_DEV_SESSION:-} ]]; then
+    session=$TMUX_DEV_SESSION
+elif [[ -n ${TMUX:-} ]]; then
+    session=$(tmux display -p '#S')
+else
+    session=$(basename "$dir" | tr . _)
+    tmux has-session -t "=$session" 2>/dev/null || tmux new-session -ds "$session" -c "$dir"
+fi
+
+win=$(tmux display -t "$session" -p '#{window_id}')
+if [[ $(tmux display -t "$win" -p '#{window_panes}') -ne 1 ]]; then
+    tmux display-message "tmux-dev-layout: window already split"
+    exit 1
+fi
+tmux rename-window -t "$win" dev
+top=$(tmux display -t "$win" -p '#{pane_id}')
+tmux send-keys -t "$top" "cd $(printf %q "$dir") && clear" C-m
+right=$(tmux split-window -t "$top" -h -l 26% -c "$dir" -P -F '#{pane_id}' -d)
+bottom=$(tmux split-window -t "$top" -v -l 35% -c "$dir" -P -F '#{pane_id}' -d)
+
+[[ -n $top_cmd    ]] && tmux send-keys -t "$top"    "$top_cmd"    C-m
+[[ -n $bottom_cmd ]] && tmux send-keys -t "$bottom" "$bottom_cmd" C-m
+[[ -n $right_cmd  ]] && tmux send-keys -t "$right"  "$right_cmd"  C-m
+
+tmux select-pane -t "$top"
+
+if [[ -z ${TMUX:-} && -z ${TMUX_DEV_SESSION:-} ]]; then
+    exec tmux attach-session -t "$session"
+fi

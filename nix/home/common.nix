@@ -302,6 +302,9 @@ in
       # project sessionizer
       bind-key f run-shell "tmux neww ~/.local/bin/tmux-sessionizer"
 
+      # dev pane layout: split the current window, cwd'd to the current pane's path
+      bind-key D run-shell "~/.local/bin/tmux-dev-layout '#{pane_current_path}'"
+
       # status bar — bg colour + left label differ per host (hostColor/hostLabel)
       set -g status-interval 1
       set -g status-justify centre
@@ -324,6 +327,10 @@ in
   # your project sessionizer (prefix+f), kept editable in-repo
   home.file.".local/bin/tmux-sessionizer".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/tmux/.local/bin/tmux-sessionizer";
+
+  # dev window layout (prefix+D): 65/35 left column + 26% right column
+  home.file.".local/bin/tmux-dev-layout".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/tmux/.local/bin/tmux-dev-layout";
 
   # dark/light theme switcher for nvim + ghostty (`theme dark|light|toggle`)
   home.file.".local/bin/theme".source =
