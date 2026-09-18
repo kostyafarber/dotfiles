@@ -60,6 +60,7 @@ return {
     keys = {
         { "<leader>gc", "<cmd>CodeDiff<cr>", desc = "CodeDiff: working tree vs HEAD" },
         { "<leader>gC", "<cmd>CodeDiff origin/main<cr>", desc = "CodeDiff: branch vs origin/main (PR view)" },
+        { "<leader>gI", "<cmd>CodeDiff --inline<cr>", desc = "CodeDiff: inline changes" },
     },
     opts = {},
     config = function(_, opts)
