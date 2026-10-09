@@ -102,6 +102,51 @@ in
     Install.WantedBy = [ "graphical-session.target" ];
   };
 
+  # GNOME extensions this box relies on, vendored so a rebuild restores them:
+  # Toshy reads the focused app through Focused Window D-Bus, and Allow Locked
+  # Remote Desktop keeps Desktop Sharing reachable if the session ever locks.
+  home.file = lib.genAttrs
+    [
+      "allowlockedremotedesktop@kamens.us"
+      "focused-window-dbus@flexagoon.com"
+    ]
+    (uuid: {
+      target = ".local/share/gnome-shell/extensions/${uuid}";
+      source = ../../gnome/extensions/${uuid};
+    })
+  ;
+
+  # Desktop settings for a headless remote-desktop and Shift test box. Toshy
+  # owns Mac-style shortcuts (its config lives in ~/.config/toshy); these keep
+  # the session awake, unlocked, and shareable without a monitor.
+  dconf.settings = with lib.hm.gvariant; {
+    "org/gnome/shell".enabled-extensions = [
+      "ding@rastersoft.com"
+      "ubuntu-dock@ubuntu.com"
+      "tiling-assistant@ubuntu.com"
+      "focused-window-dbus@flexagoon.com"
+      "allowlockedremotedesktop@kamens.us"
+    ];
+    # F3 shows every window, like Mission Control.
+    "org/gnome/shell/keybindings".toggle-overview = [ "F3" ];
+    "org/gnome/desktop/peripherals/mouse".natural-scroll = true;
+    "org/gnome/desktop/peripherals/touchpad".natural-scroll = true;
+    "org/gnome/desktop/input-sources".sources = [ (mkTuple [ "xkb" "gb" ]) ];
+    "org/gnome/desktop/session".idle-delay = mkUint32 0;
+    "org/gnome/desktop/screensaver" = {
+      lock-enabled = false;
+      idle-activation-enabled = false;
+    };
+    "org/gnome/desktop/lockdown".disable-lock-screen = true;
+    "org/gnome/settings-daemon/plugins/power" = {
+      sleep-inactive-ac-type = "nothing";
+      sleep-inactive-battery-type = "nothing";
+      idle-dim = false;
+    };
+    # A virtual monitor sized to the remote window, rather than mirroring the panel.
+    "org/gnome/desktop/remote-desktop/rdp".screen-share-mode = "extend";
+  };
+
   # Persistent display for Electron and browser tests on the headless server.
   # systemd starts it with the user session and restarts it only after failure.
   systemd.user.services.headless-display = {
