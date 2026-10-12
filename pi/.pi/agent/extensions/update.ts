@@ -13,19 +13,22 @@ export default function (pi: ExtensionAPI) {
 
 				if (result.code !== 0) {
 					ctx.ui.notify(output || `Update failed with exit code ${result.code}`, "error")
+					ctx.ui.setStatus("pi-update", undefined)
 					return
 				}
 
+				ctx.ui.setStatus("pi-update", undefined)
 				ctx.ui.notify(
 					output
-						? `${output}\n\nRestart Pi to load the updates.`
-						: "Pi and packages updated. Restart Pi to load the updates.",
+						? `${output}\n\nReloading extensions and resources. Restart Pi to load any Pi core update.`
+						: "Pi and packages updated. Reloading extensions and resources; restart Pi to load any Pi core update.",
 					"info"
 				)
+				await ctx.reload()
+				return
 			} catch (error) {
-				ctx.ui.notify(error instanceof Error ? error.message : String(error), "error")
-			} finally {
 				ctx.ui.setStatus("pi-update", undefined)
+				ctx.ui.notify(error instanceof Error ? error.message : String(error), "error")
 			}
 		},
 	})
