@@ -40,7 +40,7 @@ return {
         })
 
         vim.lsp.config("elp", {
-            cmd = { "elp", "server" },
+            cmd = { vim.fn.stdpath("data") .. "/mason/bin/elp", "server" },
             filetypes = { "erlang" },
             root_markers = { "rebar.config", "erlang.mk", ".git" },
         })
