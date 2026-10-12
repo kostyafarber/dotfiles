@@ -53,6 +53,10 @@ in
         user = "kostyafarber";
         forwardAgent = true;
       };
+      windows = {
+        hostname = "windows";
+        user = "Admin";
+      };
       beelink-dev = {
         hostname = "beelink";
         user = "kostyafarber";
