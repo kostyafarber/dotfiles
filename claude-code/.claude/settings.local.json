@@ -22,5 +22,6 @@
     ],
     "deny": [],
     "ask": []
-  }
+  },
+  "outputStyle": "Concise"
 }
