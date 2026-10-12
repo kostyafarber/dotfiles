@@ -16,7 +16,6 @@ $packages = @(
   # core
   'Git.Git'
   'GitHub.cli'
-  'Microsoft.PowerShell'
   'Microsoft.VCRedist.2015+.x64'  # delta and other MSVC-built tools need vcruntime140.dll
   'Tailscale.Tailscale'
 
@@ -54,6 +53,10 @@ foreach ($id in $packages) {
   Write-Host "==> $id" -ForegroundColor Cyan
   winget install --id $id -e --disable-interactivity --accept-source-agreements --accept-package-agreements
 }
+
+# PowerShell 7 as an MSI: winget otherwise picks the Store (MSIX) build, whose
+# versioned WindowsApps path sshd can't use as a login shell
+winget install --id Microsoft.PowerShell -e --installer-type wix --disable-interactivity --accept-source-agreements --accept-package-agreements
 
 # MSVC linker + Windows SDK for Rust's x86_64-pc-windows-msvc target.
 # Its pre-check cancels if any other MSI is still finishing, so wait for the
