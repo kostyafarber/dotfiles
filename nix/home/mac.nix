@@ -45,7 +45,7 @@ in
     enableDefaultConfig = false;
     matchBlocks = {
       mini = {
-        hostname = "mac-mini.local";
+        hostname = "mini";
         user = "kostyafarber";
       };
       beelink = {

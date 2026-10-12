@@ -44,7 +44,7 @@ The target is selected by each host module through `DOTFILES_TARGET`.
 SSH aliases on either Mac are:
 
 ```bash
-ssh mini         # Mac mini over Bonjour
+ssh mini         # Mac mini over Tailscale MagicDNS
 ssh beelink      # Ubuntu server over Tailscale MagicDNS
 ssh beelink-dev  # Beelink plus local forwards for ports 5173 and 5174
 ```
