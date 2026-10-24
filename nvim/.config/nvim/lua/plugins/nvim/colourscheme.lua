@@ -70,11 +70,35 @@ return {
             return m == "dark" and "dark" or "light"
         end
 
+        -- Inside Rex, follow Rex's appearance and recolour catppuccin with the
+        -- active Rex theme (lua/core/rex_theme.lua). Re-checked on FocusGained.
+        local rex_applied
+        local function apply_rex()
+            local rex_theme = require("core/rex_theme")
+            local mode = rex_theme.mode()
+            local overrides = rex_theme.overrides(mode)
+            local flavour = mode == "dark" and "mocha" or "latte"
+            local key = flavour .. vim.json.encode(overrides or {})
+            if key == rex_applied then return end
+            rex_applied = key
+            require("catppuccin").setup(vim.tbl_extend("force", opts, {
+                color_overrides = overrides and { [flavour] = overrides } or {},
+            }))
+            pcall(vim.cmd.colorscheme, "catppuccin-" .. flavour)
+        end
+
         local function apply()
+            if vim.env.REX_SESSION then return apply_rex() end
             local target = read_mode() == "dark" and "catppuccin-mocha" or "catppuccin-latte"
             if vim.g.colors_name ~= target then
                 pcall(vim.cmd.colorscheme, target)
             end
+        end
+
+        if vim.env.REX_SESSION then
+            vim.api.nvim_create_autocmd("FocusGained", { callback = apply })
+            vim.api.nvim_create_user_command("RexTheme", function() rex_applied = nil; apply() end,
+                { desc = "Re-sync colours with the active Rex theme" })
         end
 
         local function apply_cursor()

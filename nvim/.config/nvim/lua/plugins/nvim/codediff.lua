@@ -2,12 +2,14 @@
 -- Sits alongside diffview: <leader>gd stays diffview, <leader>gc is codediff.
 -- Inside a view: ]c/[c hunks, ]f/[f files, t toggles inline, q quits.
 
--- Windows of a codediff tab that show file contents (not the explorer/history panel).
+-- Windows of a codediff tab that show file contents (not the explorer/history panel, and not
+-- floats such as review.nvim's comment popup).
 local function diff_wins(tabpage)
     local wins = {}
     for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
         local ft = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
-        if not ft:match("^codediff%-") then
+        local floating = vim.api.nvim_win_get_config(win).relative ~= ""
+        if not floating and not ft:match("^codediff%-") then
             table.insert(wins, win)
         end
     end
@@ -62,7 +64,9 @@ return {
         { "<leader>gC", "<cmd>CodeDiff origin/main<cr>", desc = "CodeDiff: branch vs origin/main (PR view)" },
         { "<leader>gI", "<cmd>CodeDiff --inline<cr>", desc = "CodeDiff: inline changes" },
     },
-    opts = {},
+    -- inline: one column like a GitHub PR, the new side being the editable file. t flips it.
+    -- cycle_hunks_across_files: ]c past a file's last change goes on to the next file.
+    opts = { diff = { layout = "inline", cycle_hunks_across_files = true } },
     config = function(_, opts)
         require("codediff").setup(opts)
         local group = vim.api.nvim_create_augroup("codediff-tidy", { clear = true })

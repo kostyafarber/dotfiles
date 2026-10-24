@@ -13,6 +13,8 @@ return {
             { "<leader>n", group = "notify" },
             { "<leader>o", group = "open" },
             { "<leader>b", group = "buffer" },
+            { "<leader>v", group = "review" },
+            { "<leader>j", group = "debug" },
         },
     },
 }

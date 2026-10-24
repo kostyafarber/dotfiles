@@ -31,6 +31,7 @@ return {
                 "ruff",
                 "eslint_d",
                 "elp",
+                "js-debug-adapter",
             },
             auto_update = false,
             run_on_start = true,
