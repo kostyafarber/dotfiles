@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# work-list: your work in progress that has no PR yet, as JSON, newest first.
+#
+#   work-list [--repo DIR] [--days N]
+#
+# A branch counts when it is yours (its last commit is by you, or its worktree has uncommitted
+# edits), was touched in the last N days (default 30), is ahead of origin/main or has
+# uncommitted edits, and has no PR: not open (those are listed as PRs) and not merged or closed
+# (squash merges leave branches "ahead" forever). review/pr-* worktrees are other people's PRs.
+#
+# Output: [{ branch, path (worktree, or null), ahead, dirty, age_days }]
+set -euo pipefail
+
+repo=$PWD days=30
+while [[ $# -gt 0 ]]; do
+	case $1 in
+	--repo) repo=$2; shift 2 ;;
+	--days) days=$2; shift 2 ;;
+	*) echo "usage: work-list [--repo DIR] [--days N]" >&2; exit 2 ;;
+	esac
+done
+root=$(git -C "$repo" worktree list --porcelain | awk 'NR==1 { print $2 }')
+cd "$root"
+
+me=$(git config user.email)
+now=$(date +%s)
+with_pr=$(gh pr list --author @me --state all --limit 400 --json headRefName --jq '.[].headRefName' | sort -u)
+
+{
+	git worktree list --porcelain | awk '/^worktree/ { p = $2 } /^branch/ { b = $2; sub("refs/heads/", "", b); print b "\t" p }'
+	git for-each-ref --format='%(refname:short)%09' refs/heads
+} | awk -F'\t' '!seen[$1]++' | while IFS=$'\t' read -r branch path; do
+	[[ $branch == main || $branch == review/pr-* ]] && continue
+	grep -qxF "$branch" <<<"$with_pr" && continue
+	read -r when author < <(git log -1 --format='%ct %ae' "$branch")
+	(((now - when) > days * 86400)) && continue
+	ahead=$(git rev-list --count "origin/main..$branch")
+	dirty=0
+	[[ -n $path && -d $path ]] && dirty=$(git -C "$path" status --porcelain | wc -l | tr -d ' ')
+	((ahead == 0 && dirty == 0)) && continue
+	[[ $author != "$me" ]] && ((dirty == 0)) && continue
+	jq -cn --arg b "$branch" --arg p "$path" --argjson a "$ahead" --argjson d "$dirty" \
+		--argjson age $(((now - when) / 86400)) \
+		'{branch: $b, path: (if $p == "" then null else $p end), ahead: $a, dirty: $d, age_days: $age}'
+done | jq -s 'sort_by(.age_days)'

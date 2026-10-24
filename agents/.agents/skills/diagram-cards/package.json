@@ -1,0 +1,6 @@
+{
+  "name": "diagram-cards",
+  "private": true,
+  "type": "module",
+  "dependencies": { "playwright-core": "^1.47.0" }
+}

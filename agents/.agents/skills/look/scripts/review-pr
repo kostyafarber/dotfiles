@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# review-pr: open a PR, or a branch of yours, on the review page in nvim in its own Rex tab.
+#
+#   review-pr [--repo DIR] N              a PR, by number
+#   review-pr [--repo DIR] --branch B     a local branch (work with no PR yet)
+#
+# Diffs are against the PR's base branch (main for a branch). A PR gets the worktree
+# <repo>-worktrees/pr-N on a local branch review/pr-N with no upstream, so nothing pushes to the
+# PR by accident. A branch opens in the worktree that has it checked
+# out (the main checkout included), or in a new <repo>-worktrees/<name>. An existing worktree is
+# opened as it is (your edits and comments stay). Dependencies install in the background for a
+# new worktree, so LSP catches up after a minute.
+set -euo pipefail
+
+repo=$PWD
+if [[ "${1:-}" == --repo ]]; then repo=$2; shift 2; fi
+root=$(git -C "$repo" worktree list --porcelain | awk 'NR==1 { print $2 }')
+
+install_deps() {
+	if [[ -f "$1/pnpm-lock.yaml" ]]; then
+		(cd "$1" && nohup pnpm install --frozen-lockfile --prefer-offline --reporter=silent >/dev/null 2>&1 &)
+	fi
+}
+
+mode=pr
+if [[ "${1:-}" == --branch ]]; then
+	mode=branch
+	branch=${2:?usage: review-pr [--repo DIR] --branch B}
+	label=${branch##*/}
+	dir=$(git -C "$root" worktree list --porcelain |
+		awk -v want="refs/heads/$branch" '/^worktree/ { p = $2 } /^branch/ && $2 == want { print p }')
+	if [[ -z "$dir" ]]; then
+		dir="${root}-worktrees/$label"
+		git -C "$root" worktree add -q "$dir" "$branch"
+		install_deps "$dir"
+	fi
+else
+	n=${1:?usage: review-pr [--repo DIR] N | --branch B}
+	label="pr-$n"
+	dir="${root}-worktrees/pr-$n"
+	branch="review/pr-$n"
+fi
+
+# What the diff is against: a PR's base branch (a stacked PR shows only its own changes, as on
+# GitHub), otherwise main.
+base=main
+if [[ $mode == pr ]]; then
+	base=$(cd "$root" && gh pr view "$n" --json baseRefName --jq .baseRefName)
+fi
+git -C "$root" fetch -q origin "$base"
+
+if [[ $mode == pr && ! -d "$dir" ]]; then
+	head=$(cd "$root" && gh pr view "$n" --json headRefName,isCrossRepository \
+		--jq 'if .isCrossRepository then "" else .headRefName end')
+	if [[ -n "$head" ]]; then
+		git -C "$root" fetch -q origin "$head"
+		ref="origin/$head"
+	else
+		# A fork: GitHub keeps every PR's head at refs/pull/N/head.
+		git -C "$root" fetch -q origin "pull/$n/head"
+		ref=FETCH_HEAD
+	fi
+	git -C "$root" worktree add -q --no-track -b "$branch" "$dir" "$ref"
+	install_deps "$dir"
+fi
+
+[[ -n "${REX_SESSION:-}" ]] || { echo "worktree ready: $dir (not in Rex, so no tab opened)"; exit 0; }
+
+# Reuse the tab if it is already open.
+existing=$(rex window ls -s "$REX_SESSION" --json | jq -r --arg l "$label" '.windows[] | select(.label == $l) | .window_id' | head -1)
+if [[ -n "$existing" ]]; then
+	rex focus -s "$REX_SESSION" "$existing" >/dev/null
+	echo "$label already open"
+	exit 0
+fi
+rex window new -s "$REX_SESSION" "$label" -c "$dir" --json -- nvim -c "Review branch $branch origin/$base" >/dev/null
+echo "opened $label ($dir)"
