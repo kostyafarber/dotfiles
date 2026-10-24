@@ -1,0 +1,6 @@
+{
+  "name": "prs",
+  "version": "0.1.0",
+  "description": "/prs: open PRs (yours and review-requested) in a pane; pick one to review it in nvim in its own Rex tab",
+  "types": "./types/index.d.ts"
+}

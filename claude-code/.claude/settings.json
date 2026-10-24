@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude-code/mods/open-files:~/.dotfiles/claude-code/mods/prs:~/.dotfiles/work/claude"
+  },
   "hooks": {
     "Notification": [
       {
@@ -6,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "terminal-notifier -title \"٩(◕‿◕)۶\" -message \"Claudopilis NEEDS you\" -sender com.todesktop.230313mzl4w4u92"
+            "command": "[ -n \"$REX_SESSION\" ] || terminal-notifier -title \"٩(◕‿◕)۶\" -message \"Claudopilis NEEDS you\" -sender com.todesktop.230313mzl4w4u92"
           }
         ]
       }
@@ -17,26 +20,53 @@
         "hooks": [
           {
             "type": "command",
-            "command": "terminal-notifier -title \"(｡•́︿•̀｡)\" -message \"Claudopilis says goodbye\" -sender com.todesktop.230313mzl4w4u92"
+            "command": "[ -n \"$REX_SESSION\" ] || terminal-notifier -title \"(｡•́︿•̀｡)\" -message \"Claudopilis says goodbye\" -sender com.todesktop.230313mzl4w4u92"
           }
         ]
       }
     ],
-    "SubagentStart": [
+    "PreToolUse": [
       {
-        "matcher": "tldraw-offline",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "sh '/Users/kostyafarber/skills/tldraw-offline/inject-server-context.sh' SubagentStart"
+            "command": "$HOME/.dotfiles/claude-code/.claude/hooks/merge-guard.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh -c 'rex __internal session-start --agent claude 2>/dev/null || true'",
+            "timeout": 5
           }
         ]
       }
     ]
   },
+  "extraKnownMarketplaces": {
+    "paper": {
+      "source": {
+        "source": "github",
+        "repo": "paper-design/agent-plugins"
+      }
+    }
+  },
   "alwaysThinkingEnabled": true,
-  "effortLevel": "medium",
+  "effortLevel": "high",
+  "modelSettings": {
+    "claude-fable-5-1": {
+      "effortLevel": "medium"
+    }
+  },
   "skipDangerousModePermissionPrompt": true,
   "theme": "light",
-  "editorMode": "vim"
+  "editorMode": "vim",
+  "enabledPlugins": {
+    "paper-desktop@paper": true
+  }
 }

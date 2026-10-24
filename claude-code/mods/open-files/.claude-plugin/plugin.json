@@ -1,0 +1,6 @@
+{
+  "name": "open-files",
+  "version": "0.1.0",
+  "description": "/open: open files Claude mentioned (or any repo file) in your nvim, via the Rex tab",
+  "types": "./types/index.d.ts"
+}

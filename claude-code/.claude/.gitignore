@@ -5,3 +5,5 @@
 !.gitignore
 !settings.json
 !settings.local.json
+!hooks/
+!hooks/merge-guard.sh
