@@ -66,6 +66,16 @@ nix develop <destination> --command pi
 
 Do not claim that a new worktree is ready while its required environment is inactive.
 
+## Warm the build caches
+
+Once the environment is active, warm the worktree from the main checkout when the main checkout has a `.worktreeinclude`:
+
+```sh
+(cd <destination> && ~/.dotfiles/agents/.agents/skills/worktrees/scripts/warm.sh)
+```
+
+It reflinks the caches the main checkout's `.worktreeinclude` names (for Shift, `target/`) with worktrunk's `wt step copy-ignored`, then runs `pnpm install`. On APFS this takes seconds and no extra disk, and the first Rust build in the worktree drops from minutes to seconds. The `worktrees` skill in `~/.dotfiles/agents/.agents/skills/worktrees` explains the measurements, the disk rules, and what to clean up.
+
 ## Finish
 
 1. Read the destination's own context files before changing code there.

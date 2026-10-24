@@ -20,9 +20,10 @@ fi
 
 cd "$dir"
 # Install with whichever package manager the lockfile names. A fresh install, not a symlinked
-# node_modules, so workspace links resolve to this worktree's code.
+# node_modules, so workspace links resolve to this worktree's code. pnpm repos are warmed by
+# the worktrees skill, which also reflinks the build caches the main checkout's .worktreeinclude names.
 if [ -f pnpm-lock.yaml ]; then
-	pnpm install --frozen-lockfile --prefer-offline --reporter=silent
+	"$HOME/.dotfiles/agents/.agents/skills/worktrees/scripts/warm.sh"
 elif [ -f bun.lock ] || [ -f bun.lockb ]; then
 	bun install --frozen-lockfile
 elif [ -f yarn.lock ]; then

@@ -1,0 +1,11 @@
+# Linked into ~/repos/.cargo and ~/worktrees/.cargo, so it applies to every project
+# checked out under those folders (Cargo reads config from parent directories).
+#
+# Release builds that rebuild in seconds: after a change to shift-font, the shift-bridge
+# release build went from 30-34 s to 4 s and the three wasm builds from 22-24 s to 13-15 s
+# (M-series MacBook, 2026-10-24). Release binaries run somewhat slower, so before measuring
+# performance, override with:
+#   CARGO_PROFILE_RELEASE_INCREMENTAL=false CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+[profile.release]
+incremental = true
+codegen-units = 256

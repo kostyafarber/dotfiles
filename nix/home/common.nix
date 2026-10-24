@@ -58,6 +58,8 @@ in
     # gh from unstable: stable 25.11 is pinned at 2.93, and `gh pr comment --attach`
     # (the desktop record-repro flow) needs 2.99+.
     inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.gh
+    # wt: reflinks build caches into new git worktrees (the worktrees agent skill).
+    inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.worktrunk
     gnumake
     unzip
     uv # replaces conda
@@ -145,6 +147,11 @@ in
   # Secrets and runtime state stay unmanaged in ~/.pi/agent:
   # auth.json, models-store.json, sessions/.
   # ---------------------------------------------------------------------------
+  # Fast incremental release builds for projects under ~/repos and ~/worktrees.
+  home.file."repos/.cargo/config.toml".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/cargo/local-builds.toml";
+  home.file."worktrees/.cargo/config.toml".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/cargo/local-builds.toml";
   home.file.".pi/agent/AGENTS.md".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/AGENTS.md";
   home.file.".pi/agent/settings.json".source =
