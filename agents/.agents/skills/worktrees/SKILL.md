@@ -57,7 +57,7 @@ In Shift, `typecheck` depends on the release `shift-bridge` build and the releas
 | wasm, first build in a new worktree | 64 s |
 | wasm, every later build | 31 s |
 
-- **The 33 s first-build penalty** (removed on branch `build/wasm-build-speed`; drop this line once it merges) comes from `packages/wasm/scripts/build.mjs`, which puts `--remap-path-prefix=<checkout path>=/shift` in `RUSTFLAGS`. The path differs per worktree, and `RUSTFLAGS` is part of every crate's fingerprint, so all 68 third-party crates rebuild once in each new worktree, even from a copied `target/`.
+- **The 33 s first-build penalty** (removed by #791; drop this line once it merges) comes from `packages/wasm/scripts/build.mjs`, which puts `--remap-path-prefix=<checkout path>=/shift` in `RUSTFLAGS`. The path differs per worktree, and `RUSTFLAGS` is part of every crate's fingerprint, so all 68 third-party crates rebuild once in each new worktree, even from a copied `target/`.
 - **The 31 s** is three release builds, one per variant (plain, `reference`, `shaping`), run one after another.
 
 ## Benchmark
@@ -66,16 +66,16 @@ In Shift, `typecheck` depends on the release `shift-bridge` build and the releas
 
 Why 10 s: it's where people lose focus and switch tasks (Nielsen's response-time limits). In the [Rust compiler performance survey 2025](https://blog.rust-lang.org/2025/09/10/rust-compiler-performance-survey-2025-results), 55% of respondents wait longer than that after a small change, and it was the top complaint. Google's build-latency study ([Jaspan & Green](https://newsletter.getdx.com/p/build-times-and-developer-productivity)) found no threshold below which faster builds stop helping.
 
-| Loop (after a change to `shift-font`) | 2026-10-24 before | After the fixes | Target |
+| Loop (after a change to `shift-font`) | 2026-10-24 before | After #791 + incremental release (`loop-bench.sh`) | Target |
 |---|---|---|---|
-| TypeScript-only check, `turbo run typecheck --only` | — | 10 s | ✅ |
-| `cargo check -p shift-bridge` | — | 11 s | ≈ |
-| Release bridge build | 30–48 s | 4 s (incremental release, below) | ✅ |
-| wasm build, three variants | 31 s (64 s first time per worktree) | 13–15 s | ❌ |
-| Full `pnpm typecheck` | 97 s (186 s cold) | 11–12 s (types from `cargo check` and a debug wasm build, branch `build/wasm-build-speed`) | ≈ |
+| Full `pnpm typecheck` | 97 s (186 s cold) | 11 s | ≈ |
+| `turbo run typecheck --only` | — | 0–10 s (a cache hit when no TypeScript changed) | ✅ |
+| `cargo check -p shift-bridge` | — | 2 s | ✅ |
+| Release bridge build | 30–48 s | 5 s | ✅ |
+| wasm app build | 31 s (64 s first time per worktree) | 3 s | ✅ |
 | New worktree ready | 5 s, Rust cold | 12 s, Rust warm | ≈ |
 
-Rerun the rows you touch after any build change, and update this table.
+Rerun the rows you touch after any build change, and update this table. `scripts/loop-bench.sh`, run from a Shift worktree, times them all in one go (it warms up first, then makes a unique change to `shift-font` before each step and restores the file afterwards).
 
 ## Incremental release builds
 
