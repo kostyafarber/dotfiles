@@ -337,6 +337,9 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/theme";
   home.file.".local/bin/tt".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/tt";
 
+  # open file:line in the nvim of the current Rex tab (`nvo src/app.ts:42`)
+  home.file.".local/bin/nvo".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/nvo";
+
   # check a GitHub PR out from anywhere, into its own worktree + tmux session
   # (`pco <url>`, `pco 123`, `pco ls`, `pco rm 123`)
   home.file.".local/bin/pco".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/pco";
@@ -368,6 +371,9 @@ in
       # the same directories later in PATH (for example Codex or an SSH shell).
       typeset -U path PATH
       path=("$HOME/.nix-profile/bin" "$HOME/.local/bin" "$HOME/.npm-global/bin" $path)
+      # Rex puts its CLI on PATH in its terminals, but nix-darwin's
+      # set-environment rebuilds PATH and drops it, so add it back.
+      [ -n "$REX_BIN_DIR" ] && path=("$REX_BIN_DIR" $path)
       export PATH
       [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 

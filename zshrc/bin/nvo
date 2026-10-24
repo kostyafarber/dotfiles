@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# nvo — open file[:line[:col]] in the nvim running in this Rex tab, and focus it.
+#
+#   nvo src/app.ts:42
+#   nvo src/app.ts:42:7
+#   nvo --review [base]   review changes since base (default HEAD) in a new nvim tab
+#
+# nvim publishes a socket per Rex tab (nvim/.config/nvim/lua/core/rex.lua).
+set -euo pipefail
+
+[[ -n "${REX_SESSION:-}" && -n "${REX_BLOCK:-}" ]] || { echo "nvo: not in a Rex pane" >&2; exit 1; }
+
+review=""
+if [[ "${1:-}" == --review ]]; then
+  review="${2:-HEAD}"
+  set -- "$PWD"
+fi
+[[ $# -eq 1 ]] || { echo "usage: nvo file[:line[:col]] | nvo --review [base]" >&2; exit 2; }
+
+spec="$1" line="" col=""
+if [[ "$spec" =~ ^(.*):([0-9]+):([0-9]+)$ ]]; then
+  spec="${BASH_REMATCH[1]}" line="${BASH_REMATCH[2]}" col="${BASH_REMATCH[3]}"
+elif [[ "$spec" =~ ^(.*):([0-9]+)$ ]]; then
+  spec="${BASH_REMATCH[1]}" line="${BASH_REMATCH[2]}"
+fi
+file="$(cd "$(dirname "$spec")" && pwd)/$(basename "$spec")"
+
+window="$(rex block ls -s "$REX_SESSION" --json |
+  jq -r --arg b "$REX_BLOCK" '.blocks[] | select(.block_id == $b) | .window_id')"
+sock="/tmp/rex-nvim-$(id -u)/${window#window:}.sock"
+[[ -S "$sock" ]] || { echo "nvo: no nvim in this Rex tab" >&2; exit 1; }
+
+# Pass the location through Lua so the path needs no Vim-script escaping.
+lua='local f, l, c, review = ...
+if review ~= "" then
+  -- review.nvim: the working tree against HEAD, or the current branch (with uncommitted work) against a base.
+  vim.cmd.cd(vim.fn.fnameescape(f))
+  local branch = vim.fn.systemlist({ "git", "branch", "--show-current" })[1] or ""
+  vim.cmd(review == "HEAD" and "Review" or ("Review branch " .. branch .. " " .. review))
+  return vim.env.REX_BLOCK
+end
+vim.cmd.edit(vim.fn.fnameescape(f))
+if l ~= "" then vim.api.nvim_win_set_cursor(0, { tonumber(l), math.max(tonumber(c ~= "" and c or 1) - 1, 0) }); vim.cmd("normal! zz") end
+return vim.env.REX_BLOCK'
+# --headless: otherwise nvim starts a TUI client and stdout gets its escape codes.
+nvim_block="$(nvim --headless --server "$sock" --remote-expr \
+  "luaeval('loadstring(_A[1])(_A[2], _A[3], _A[4], _A[5])', [$(jq -Rn --arg s "$lua" '$s'), $(jq -Rn --arg s "$file" '$s'), '$line', '$col', $(jq -Rn --arg s "$review" '$s')])" </dev/null)"
+
+rex focus -s "$REX_SESSION" "$nvim_block" >/dev/null
