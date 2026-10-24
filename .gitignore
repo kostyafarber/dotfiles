@@ -21,3 +21,9 @@ Thumbs.db
 
 # home-manager build artifact
 result
+
+# Work-only config: a separate private repo, never committed here
+/work/
+
+# Python bytecode
+__pycache__/

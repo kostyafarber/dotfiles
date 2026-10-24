@@ -95,6 +95,14 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty/.config/ghostty/config";
   xdg.configFile."ghostty/themes".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/ghostty/.config/ghostty/themes";
+  xdg.configFile."rex/init.lua".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/rex/.config/rex/init.lua";
+  home.file.".local/bin/rex-sessionizer".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/rex/.local/bin/rex-sessionizer";
+  # Rex only puts its CLI on PATH inside its own terminals; the agent skill and
+  # hook need it everywhere.
+  home.file.".local/bin/rex".source =
+    config.lib.file.mkOutOfStoreSymlink "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex";
   home.file.".wezterm.lua".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/wezterm/.wezterm.lua";
 
@@ -157,10 +165,15 @@ in
     # node comes from nix (common.nix nodejs_24) — nvm + the per-cd load-nvmrc
     # hook were dropped. `corepack enable` once if you want pnpm/yarn shims.
 
-    # Ctrl-F: fuzzy-pick a project and open its tmux session (local)
-    bindkey -s '^F' '^Utmux-sessionizer^M'
+    # Ctrl-F: fuzzy-pick a project and open its Rex or tmux session (local)
+    if [[ -n $REX_SESSION ]]; then
+      bindkey -s '^F' '^Urex-sessionizer^M'
+    else
+      bindkey -s '^F' '^Utmux-sessionizer^M'
+    fi
 
     # work config last (it applies keybindings; mirrors your old zshrc ordering)
     [ -f "$HOME/.work" ] && source "$HOME/.work"
+    [ -f "$HOME/.dotfiles/work/zsh/work.zsh" ] && source "$HOME/.dotfiles/work/zsh/work.zsh"
   '';
 }
