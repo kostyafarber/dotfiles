@@ -108,6 +108,6 @@ reflinks need APFS, btrfs, XFS or ReFS. Linux machines on ext4 (check with `df -
 
 ## Disk and cleanup
 
-- Check `df -h /` before creating a worktree. Below about 15 GB free, stop and tell the user before building anything.
-- A reflinked `target/` costs nothing at first, but every rebuild in it writes new files, so its real size grows with each build.
+- Check `df -h /` before creating a worktree and before a long build or test run. Below about 30 GB free, run `scripts/sweep.sh` (it deletes Rust build files unused for 7 days in every worktree and checkout; pass another number of days as its argument). Below about 15 GB, stop and tell the user before building anything: at 0 the shell itself cannot start, and only the user can free space.
+- A reflinked `target/` costs nothing at first, but every rebuild in it writes new files, so its real size grows with each build. Incremental release builds (below) add a cache per crate on top. Reflinks make worktrees fast, not small.
 - Remove worktrees you created once their work is pushed: `git worktree remove <dir>`, then `git worktree prune`. Ask before removing any worktree you did not create.
