@@ -165,6 +165,63 @@ rex.action{
   run   = function(ctx) return nvim_tab(ctx, "review", { "nvim", "-c", "Review" }) end,
 }
 
+-- A Shift PR in a "PR #…" tab of this session: review.nvim on the PR's branch (edit in
+-- place) beside Claude, and with run=true the dev app building underneath. Opening another
+-- PR replaces that tab; shift-review refuses while the worktree has uncommitted changes.
+local shift_review_bin = os.getenv("HOME") .. "/.dotfiles/rex/.local/bin/shift-review"
+
+rex.action{
+  name     = "shift_review",
+  title    = "Review Shift PR",
+  keywords = "shift pr pull request review github",
+  args     = { pr = "string", run = "boolean?" },
+  run      = function(ctx, args)
+    local res = rex.exec{ shift_review_bin, "checkout", args.pr }
+    if not res.ok then error(res.stderr or res.stdout or "shift-review checkout failed", 0) end
+    local pr = {}
+    for key, value in (res.stdout or ""):gmatch("(%w+)=([^\n]*)") do pr[key] = value end
+
+    local review = term(pr.dir, { "nvim", "-c", "Review branch " .. pr.branch .. " " .. pr.base })
+    local layout = rex.layout.horizontal(0.66, review, term(pr.dir, { "claude" }))
+    if args.run then
+      layout = rex.layout.vertical(0.72, layout, term(pr.dir, { shift_review_bin, "app", pr.dir }))
+    end
+
+    local session_id = ctx.session_id
+    local view, verr = rex.call("session.view", { session_id = session_id })
+    if verr ~= nil then error(verr, 0) end
+    local created, werr = rex.call("session.new_window", {
+      session_id = session_id,
+      window_label = "PR #" .. pr.number .. " " .. pr.title,
+      layout = layout,
+    })
+    if werr ~= nil then error(werr, 0) end
+    for _, w in ipairs(view.windows or {}) do
+      if (w.window_label or w.label or ""):match("^PR #") then
+        rex.call("session.close_window", { session_id = session_id, window_id = w.window_id })
+      end
+    end
+    return { window_id = created.window_id, dir = pr.dir, branch = pr.branch }
+  end,
+}
+
+-- Open Shift PRs in a floating picker over this tab (shift-review pick).
+rex.action{
+  name     = "shift_prs",
+  title    = "Shift PRs",
+  keywords = "shift pr pull request review github",
+  run      = function(ctx)
+    local res, err = rex.call("session.new_layer", {
+      session_id = ctx.session_id,
+      bounds     = { 0.06, 0.08, 0.88, 0.84 },
+      focus      = true,
+      layout     = term(os.getenv("HOME"), { shift_review_bin, "pick" }),
+    })
+    if err ~= nil then error(err, 0) end
+    return res
+  end,
+}
+
 -- Keys ---------------------------------------------------------------------
 
 local p = "ctrl+space>"
@@ -242,6 +299,7 @@ rex.bind(p .. "f", "client.palette.toggle")
 
 -- layouts
 rex.bind(p .. "shift+d", "dev_layout")
+rex.bind(p .. "g", "shift_prs")
 
 -- misc
 rex.bind(p .. "c>h", "com.superlogical.terminal.clear")

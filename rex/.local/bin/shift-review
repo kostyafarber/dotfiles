@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# Review Shift pull requests in one reusable worktree.
+#
+#   shift-review checkout <pr number or URL>
+#       Checks the PR's branch out in ~/repos/shift-review (or finds the worktree that
+#       already has it) and prints dir=, branch=, base=, number=, title= lines.
+#   shift-review app [dir]
+#       Builds the native module and starts the dev app with its own profile, so it runs
+#       beside your everyday Shift Dev.
+set -euo pipefail
+
+# Rex actions run this without a login shell, so add the Nix profile for gh, git and node.
+export PATH="/etc/profiles/per-user/$USER/bin:/run/current-system/sw/bin:$HOME/.local/bin:$PATH"
+
+repo="${SHIFT_REPO:-$HOME/repos/shift}"
+review_dir="${SHIFT_REVIEW_DIR:-$HOME/repos/shift-review}"
+profile="$HOME/Library/Application Support/Shift Dev Review"
+
+die() { echo "shift-review: $*" >&2; exit 1; }
+
+# The worktree that has `branch` checked out, or nothing.
+worktree_with() {
+  git -C "$repo" worktree list --porcelain | awk -v ref="refs/heads/$1" '
+    /^worktree / { dir = substr($0, 10) }
+    $0 == "branch " ref { print dir; exit }'
+}
+
+checkout() {
+  local pr="${1:-}"
+  [[ -n "$pr" ]] || die "usage: shift-review checkout <pr number or URL>"
+  pr="${pr%/}"
+  pr="${pr%/changes}"
+  pr="${pr%/files}"
+  pr="${pr##*/}"
+  [[ "$pr" =~ ^[0-9]+$ ]] || die "not a PR number or URL: $1"
+
+  local info branch base title
+  info=$(cd "$repo" && gh pr view "$pr" --json headRefName,baseRefName,title \
+    -q '[.headRefName, .baseRefName, .title] | join("\t")') || die "can't read PR #$pr"
+  IFS=$'\t' read -r branch base title <<<"$info"
+
+  local dir
+  dir=$(worktree_with "$branch")
+  # Another worktree that has the branch is yours to update; the review worktree is ours.
+  if [[ -z "$dir" || "$dir" == "$review_dir" ]]; then
+    dir="$review_dir"
+    if [[ ! -d "$dir" ]]; then
+      git -C "$repo" fetch -q origin "$base"
+      git -C "$repo" worktree add -q --detach "$dir" "origin/$base"
+    fi
+    if [[ -n "$(git -C "$dir" status --porcelain)" ]]; then
+      die "$dir has uncommitted changes on $(git -C "$dir" branch --show-current); commit or stash them first"
+    fi
+    (cd "$dir" && gh pr checkout "$pr") >&2
+  fi
+  git -C "$dir" fetch -q origin "$base"
+
+  printf 'dir=%s\nbranch=%s\nbase=origin/%s\nnumber=%s\ntitle=%s\n' \
+    "$dir" "$branch" "$base" "$pr" "$title"
+}
+
+app() {
+  local dir="${1:-$PWD}"
+  cd "$dir"
+  pnpm build:native:debug
+  pnpm --filter @shift/desktop exec electron-forge start -- --user-data-dir="$profile"
+}
+
+# Open PRs in fzf with the description as the preview. Enter reviews the PR in this Rex
+# session, ctrl-r reviews it with the app running.
+pick() {
+  local picked
+  picked=$(cd "$repo" && gh pr list --limit 100 --json number,title,author,isDraft \
+      -q '.[] | "\(.number)\t\(.title)\t\(.author.login)\(if .isDraft then " · draft" else "" end)"' |
+    fzf --delimiter='\t' --with-nth='1..' --expect=ctrl-r \
+      --header='enter: review · ctrl-r: review + run app · esc: close' \
+      --preview="cd '$repo' && GH_FORCE_TTY=\$FZF_PREVIEW_COLUMNS gh pr view {1}" \
+      --preview-window='right,60%,wrap') || return 0
+
+  local key number run=()
+  key=$(head -1 <<<"$picked")
+  number=$(sed -n 2p <<<"$picked" | cut -f1)
+  [[ -n "$number" ]] || return 0
+  [[ "$key" == ctrl-r ]] && run=(run=true)
+  rex do -s "$REX_SESSION" shift_review pr="$number" ${run[@]+"${run[@]}"} >/dev/null || read -rp "Press enter to close"
+}
+
+case "${1:-}" in
+  checkout) shift; checkout "$@" ;;
+  app) shift; app "$@" ;;
+  pick) shift; pick ;;
+  *) die "usage: shift-review checkout <pr> | app [dir] | pick" ;;
+esac
