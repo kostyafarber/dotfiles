@@ -290,9 +290,8 @@ in
 
       setw -g monitor-activity on
 
-      # multi-key "clear" table: prefix c then h -> clear-history
-      bind-key -T prefix c switch-client -T clear-keys
-      bind-key -T clear-keys h clear-history
+      # clear scrollback while preserving the standard prefix+c new-window binding
+      bind C-l clear-history
 
       # copy-mode (vi)
       bind-key Escape copy-mode
@@ -323,8 +322,9 @@ in
       bind k select-pane -U
       bind l select-pane -R
 
-      # project sessionizer
+      # project and SSH sessionizers
       bind-key f run-shell "tmux neww ~/.local/bin/tmux-sessionizer"
+      bind-key g run-shell "tmux neww ~/.local/bin/ssh-sessionizer"
 
       # dev pane layout: split the current window, cwd'd to the current pane's path
       bind-key D run-shell "~/.local/bin/tmux-dev-layout '#{pane_current_path}'"
@@ -348,9 +348,11 @@ in
     '';
   };
 
-  # your project sessionizer (prefix+f), kept editable in-repo
+  # project and SSH sessionizers (prefix+f / prefix+g), kept editable in-repo
   home.file.".local/bin/tmux-sessionizer".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/tmux/.local/bin/tmux-sessionizer";
+  home.file.".local/bin/ssh-sessionizer".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/tmux/.local/bin/ssh-sessionizer";
 
   # dev window layout (prefix+D): 65/35 left column + 26% right column
   home.file.".local/bin/tmux-dev-layout".source =
@@ -469,7 +471,7 @@ in
       # session. Non-interactive SSH commands remain unaffected.
       if [[ -n "$SSH_TTY" && -z "$TMUX" && "$NO_AUTO_TMUX" != 1 ]] && \
          [[ "$DOTFILES_TARGET" == "mac-mini" || "$DOTFILES_TARGET" == "kostyafarber@beelink" ]]; then
-        exec tmux new-session -A -s main
+        tmux new-session -A -s main
       fi
 
       # sane option previously set by oh-my-zsh

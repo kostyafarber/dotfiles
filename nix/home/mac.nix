@@ -32,6 +32,10 @@ in
   # distribution path explicitly instead of relying on /etc/paths.d/TeX.
   home.sessionPath = [ "/Library/TeX/texbin" ];
 
+  # One cargo build directory for every project and git worktree. Each Shift
+  # worktree otherwise builds its own 10-20 GB target/ and fills the disk.
+  home.sessionVariables.CARGO_TARGET_DIR = "${config.home.homeDirectory}/.cache/cargo-target";
+
   # nix's git wins on PATH over brew git and ignores Apple's /etc/gitconfig, so
   # it loses the osxkeychain helper the system git had. Re-declare it (mac-only;
   # the helper binary ships with nixpkgs git) so HTTPS pushes keep using the
@@ -47,6 +51,7 @@ in
       mini = {
         hostname = "mini";
         user = "kostyafarber";
+        extraOptions.HostKeyAlias = "mac-mini.local";
       };
       beelink = {
         hostname = "beelink";
@@ -103,8 +108,22 @@ in
   # hook need it everywhere.
   home.file.".local/bin/rex".source =
     config.lib.file.mkOutOfStoreSymlink "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex";
+  # The Rex server reads init.lua only at startup or on reload, so a switch
+  # would otherwise leave it on the old config (and the old ~/repos project
+  # list). Skipped when no server is running; a bad config never fails the switch.
+  home.activation.rexConfigReload = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    rexCli="/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/Contents/MacOS/rex"
+    if [ -x "$rexCli" ]; then
+      run "$rexCli" --autostart=false --timeout 5s config reload || true
+    fi
+  '';
   home.file.".wezterm.lua".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/wezterm/.wezterm.lua";
+  # Claude Code: shared settings + hooks; work-only bits come from the work/claude plugin.
+  home.file.".claude/settings.json".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude-code/.claude/settings.json";
+  home.file.".claude/hooks".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude-code/.claude/hooks";
 
   # MarkEdit extensions live inside the app's sandbox container. Real copy, not
   # a store symlink — the sandbox can't follow links out to /nix/store.
@@ -165,12 +184,17 @@ in
     # node comes from nix (common.nix nodejs_24) — nvm + the per-cd load-nvmrc
     # hook were dropped. `corepack enable` once if you want pnpm/yarn shims.
 
-    # Ctrl-F: fuzzy-pick a project and open its Rex or tmux session (local)
+    # Ctrl-F: fuzzy-pick a project and open its Rex or tmux session (local);
+    # Ctrl-G: fuzzy-pick an SSH host.
     if [[ -n $REX_SESSION ]]; then
       bindkey -s '^F' '^Urex-sessionizer^M'
     else
       bindkey -s '^F' '^Utmux-sessionizer^M'
     fi
+    bindkey -s '^G' '^Ussh-sessionizer^M'
+
+    # Claude Code mods; work/zsh/work.zsh appends the work plugin.
+    export CLAUDE_CODE_PLUGIN_DIRS="$HOME/.dotfiles/claude-code/mods/open-files:$HOME/.dotfiles/claude-code/mods/prs"
 
     # work config last (it applies keybindings; mirrors your old zshrc ordering)
     [ -f "$HOME/.work" ] && source "$HOME/.work"

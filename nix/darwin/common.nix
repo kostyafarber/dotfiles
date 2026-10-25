@@ -29,6 +29,7 @@ in
   };
 
   programs.zsh.enable = true;
+  security.pam.services.sudo_local.touchIdAuth = true;
   environment.systemPackages = [ brewZshCompletion ];
 
   # Install Homebrew on a fresh Mac and adopt an existing /opt/homebrew install.

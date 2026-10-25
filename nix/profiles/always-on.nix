@@ -22,5 +22,6 @@
 
   users.users.kostyafarber.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE1hMCDKl2i4tCnVL2q9E0Vx5Rtw9dCGvFMqwsFRAq3z kostya.farber@gmail.com"
+    "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBKrJ/I25TrUxdqSARNCrM0FCcGo/KAqFpyqtxuSc5adR2NJMnOsl4yPDr97vxRulYxTC0whZl6lm68KVEFWzXSY= termius-face-id"
   ];
 }

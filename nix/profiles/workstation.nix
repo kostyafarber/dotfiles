@@ -4,11 +4,13 @@
   # User-level macOS configuration shared by workstation Macs.
   home-manager.users.kostyafarber.imports = [ ../home/mac.nix ];
 
-  # Homebrew is reserved for GUI applications that are not practical to manage
-  # through nixpkgs. Cleanup stays disabled: removing a declaration never
+  # Homebrew manages GUI applications and the official Resend CLI.
+  # Cleanup stays disabled: removing a declaration never
   # uninstalls an application implicitly.
   homebrew = {
     enable = true;
+    taps = [ "resend/cli" ];
+    brews = [ "resend" ];
     casks = [
       "1password"
       "1password-cli"

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+# Fuzzy-pick an SSH host and connect to it. Interactive shells on the always-on
+# hosts automatically attach to their persistent tmux session.
+#
+# Configure choices with a newline- or colon-separated list:
+#   export SSH_SESSIONIZER_HOSTS="beelink:mini"
+
+set -uo pipefail
+
+if [[ $# -gt 1 ]]; then
+    echo "usage: ssh-sessionizer [host]" >&2
+    exit 2
+fi
+
+if [[ $# -eq 1 ]]; then
+    selected=$1
+else
+    selected=$(
+        printf '%s\n' "${SSH_SESSIONIZER_HOSTS:-beelink:mini}" \
+            | tr ':' '\n' \
+            | awk 'NF' \
+            | fzf --reverse --prompt="ssh> " --height=60% --border
+    )
+fi
+
+[[ -z ${selected:-} ]] && exit 0
+exec ssh "$selected"
