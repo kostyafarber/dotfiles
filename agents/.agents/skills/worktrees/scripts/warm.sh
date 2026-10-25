@@ -14,6 +14,19 @@ else
 	wt=(nix run nixpkgs#worktrunk --)
 fi
 
+# Repos the skill knows get their .worktreeinclude on first use, kept out of git
+# through .git/info/exclude, so every machine copies the same caches.
+skill=$(cd "$(dirname "$0")/.." && pwd)
+remote=$(git -C "$main" remote get-url origin 2>/dev/null | sed -E 's#^(https?://|ssh://)?(git@)?##; s#:#/#; s#\.git$##')
+known="$skill/includes/${remote//\//_}"
+if [ ! -f "$main/.worktreeinclude" ] && [ -n "$remote" ] && [ -f "$known" ]; then
+	cp "$known" "$main/.worktreeinclude"
+	exclude="$(git -C "$main" rev-parse --absolute-git-dir)/info/exclude"
+	mkdir -p "$(dirname "$exclude")"
+	grep -qxF .worktreeinclude "$exclude" 2>/dev/null || echo .worktreeinclude >>"$exclude"
+	echo "warm.sh: wrote $main/.worktreeinclude from $known"
+fi
+
 t0=$(date +%s)
 if [ -f "$main/.worktreeinclude" ]; then
 	"${wt[@]}" step copy-ignored --require-include

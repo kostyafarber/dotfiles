@@ -24,7 +24,7 @@ cd <dir>
 
 `warm.sh` runs `wt step copy-ignored --require-include` (worktrunk), which copies only what the main checkout's `.worktreeinclude` names, as reflinks: instant clones that take no extra disk until a file changes. Then it installs dependencies and prints how long each part took and how much disk is free.
 
-The main checkout's `.worktreeinclude` lists the build caches to copy, in gitignore syntax. Keep it untracked by listing it in `.git/info/exclude`, never in `.gitignore`:
+The main checkout's `.worktreeinclude` lists the build caches to copy, in gitignore syntax. For repos with a file in `includes/` (named after the `origin` remote, such as `github.com_shift-editor_shift`), `warm.sh` writes it on first use and lists it in `.git/info/exclude`, so every machine gets it without setup. For other repos, write it yourself and keep it untracked the same way, never in `.gitignore`:
 
 ```
 target/

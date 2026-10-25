@@ -147,6 +147,23 @@ in
   # Secrets and runtime state stay unmanaged in ~/.pi/agent:
   # auth.json, models-store.json, sessions/.
   # ---------------------------------------------------------------------------
+  # Claude Code skills kept in this repo, on every machine. learn-build and
+  # shift-nightly are left out: some machines keep their own copies.
+  home.file.".claude/skills/bugbot".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/bugbot";
+  home.file.".claude/skills/ci-wait".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/ci-wait";
+  home.file.".claude/skills/diagram-cards".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/diagram-cards";
+  home.file.".claude/skills/explain-flow".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/explain-flow";
+  home.file.".claude/skills/look".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/look";
+  home.file.".claude/skills/pr-worktree".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/pr-worktree";
+  home.file.".claude/skills/worktrees".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/worktrees";
+
   # Fast incremental release builds for projects under ~/repos and ~/worktrees.
   home.file."repos/.cargo/config.toml".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/cargo/local-builds.toml";
