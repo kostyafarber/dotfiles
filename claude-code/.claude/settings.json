@@ -1,7 +1,4 @@
 {
-  "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude-code/mods/open-files:~/.dotfiles/claude-code/mods/prs:~/.dotfiles/work/claude"
-  },
   "hooks": {
     "Notification": [
       {
@@ -10,17 +7,6 @@
           {
             "type": "command",
             "command": "[ -n \"$REX_SESSION\" ] || terminal-notifier -title \"٩(◕‿◕)۶\" -message \"Claudopilis NEEDS you\" -sender com.todesktop.230313mzl4w4u92"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$REX_SESSION\" ] || terminal-notifier -title \"(｡•́︿•̀｡)\" -message \"Claudopilis says goodbye\" -sender com.todesktop.230313mzl4w4u92"
           }
         ]
       }
@@ -46,6 +32,17 @@
           }
         ]
       }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "tldraw-offline",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$HOME/skills/tldraw-offline/inject-server-context.mjs\"; [ -f \"$f\" ] && node \"$f\" SubagentStart || true"
+          }
+        ]
+      }
     ]
   },
   "extraKnownMarketplaces": {
@@ -53,6 +50,18 @@
       "source": {
         "source": "github",
         "repo": "paper-design/agent-plugins"
+      }
+    },
+    "obsidian-skills": {
+      "source": {
+        "source": "github",
+        "repo": "kepano/obsidian-skills"
+      }
+    },
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
       }
     }
   },
@@ -67,6 +76,17 @@
   "theme": "light",
   "editorMode": "vim",
   "enabledPlugins": {
-    "paper-desktop@paper": true
-  }
+    "paper-desktop@paper": true,
+    "swift-lsp@claude-plugins-official": true,
+    "ralph-wiggum@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true,
+    "obsidian@obsidian-skills": true,
+    "skill-creator@claude-plugins-official": true
+  },
+  "attribution": {
+    "commit": ""
+  },
+  "agentPushNotifEnabled": true
 }
