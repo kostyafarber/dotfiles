@@ -1,27 +1,17 @@
-local latte = {
-    base     = "#eff1f5",
-    mantle   = "#e6e9ef",
-    surface0 = "#ccd0da",
-    overlay1 = "#8c8fa1",
-    text     = "#4c4f69",
-    mauve    = "#8839ef",
-    blue     = "#1e66f5",
-    green    = "#40a02b",
-    sapphire = "#209fb5",
-    red      = "#d20f39",
-    peach    = "#fe640b",
-    yellow   = "#df8e1d",
-    lavender = "#7287fd",
-}
-
-local bubbles_theme = {
-    normal   = { a = { fg = latte.base, bg = latte.mauve,    gui = "bold" }, b = { fg = latte.text, bg = latte.surface0 }, c = { fg = latte.text, bg = latte.base } },
-    insert   = { a = { fg = latte.base, bg = latte.green,    gui = "bold" } },
-    visual   = { a = { fg = latte.base, bg = latte.sapphire, gui = "bold" } },
-    replace  = { a = { fg = latte.base, bg = latte.red,      gui = "bold" } },
-    command  = { a = { fg = latte.base, bg = latte.peach,    gui = "bold" } },
-    inactive = { a = { fg = latte.overlay1, bg = latte.mantle }, b = { fg = latte.overlay1, bg = latte.mantle }, c = { fg = latte.overlay1, bg = latte.base } },
-}
+-- Built from the active catppuccin palette (flavour + Rex color_overrides, see
+-- colourscheme.lua). lualine calls a function theme again on every ColorScheme,
+-- so dark/light and Rex theme switches carry through to the statusline.
+local function bubbles_theme()
+    local c = require("catppuccin.palettes").get_palette()
+    return {
+        normal   = { a = { fg = c.base, bg = c.mauve,    gui = "bold" }, b = { fg = c.text, bg = c.surface0 }, c = { fg = c.text, bg = c.base } },
+        insert   = { a = { fg = c.base, bg = c.green,    gui = "bold" } },
+        visual   = { a = { fg = c.base, bg = c.sapphire, gui = "bold" } },
+        replace  = { a = { fg = c.base, bg = c.red,      gui = "bold" } },
+        command  = { a = { fg = c.base, bg = c.peach,    gui = "bold" } },
+        inactive = { a = { fg = c.overlay1, bg = c.mantle }, b = { fg = c.overlay1, bg = c.mantle }, c = { fg = c.overlay1, bg = c.base } },
+    }
+end
 
 local function lsp_name()
     local clients = vim.lsp.get_clients({ bufnr = 0 })

@@ -95,5 +95,14 @@ return {
             pattern = "CodeDiffClose",
             callback = restore,
         })
+        -- The explorer/history panels are named like files but left as normal buffers,
+        -- so auto-save wrote them into the cwd as "CodeDiff Explorer [N]".
+        vim.api.nvim_create_autocmd("FileType", {
+            group = group,
+            pattern = { "codediff-explorer", "codediff-history" },
+            callback = function(args)
+                vim.bo[args.buf].buftype = "nofile"
+            end,
+        })
     end,
 }
