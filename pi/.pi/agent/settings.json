@@ -12,5 +12,8 @@
     "npm:pi-web-access",
     "npm:pi-mcp-extension"
   ],
+  "extensions": [
+    "-builtin:mcp"
+  ],
   "hideThinkingBlock": true
 }
