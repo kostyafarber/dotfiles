@@ -194,7 +194,10 @@ in
     bindkey -s '^G' '^Ussh-sessionizer^M'
 
     # Claude Code mods; work/zsh/work.zsh appends the work plugin.
-    export CLAUDE_CODE_PLUGIN_DIRS="$HOME/.dotfiles/claude-code/mods/open-files:$HOME/.dotfiles/claude-code/mods/prs"
+    export CLAUDE_CODE_PLUGIN_DIRS="$HOME/.dotfiles/claude-code/mods/open-files:$HOME/.dotfiles/claude-code/mods/prs:$HOME/.dotfiles/claude-code/mods/diagrams"
+    # Rex speaks the kitty image protocol but Claude Code doesn't detect it; the diagrams mod's
+    # show_diagram draws images inline.
+    [[ $TERM_PROGRAM == rex ]] && export CLAUDE_CODE_FORCE_TERMINAL_IMAGES=1
 
     # work config last (it applies keybindings; mirrors your old zshrc ordering)
     [ -f "$HOME/.work" ] && source "$HOME/.work"
