@@ -153,8 +153,8 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/bugbot";
   home.file.".claude/skills/ci-wait".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/ci-wait";
-  home.file.".claude/skills/diagram-cards".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/diagram-cards";
+  home.file.".claude/skills/explain-with-diagrams".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/explain-with-diagrams";
   home.file.".claude/skills/explain-flow".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/explain-flow";
   home.file.".claude/skills/look".source =
