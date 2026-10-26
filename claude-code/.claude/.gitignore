@@ -7,3 +7,4 @@
 !settings.local.json
 !hooks/
 !hooks/merge-guard.sh
+!CLAUDE.md

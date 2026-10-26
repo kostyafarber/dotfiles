@@ -1,0 +1,12 @@
+{
+  "name": "diagrams-render",
+  "private": true,
+  "type": "module",
+  "description": "Renders show_diagram and show_code for the diagrams mod",
+  "dependencies": {
+    "@carbon/icons": "^11.91.0",
+    "beautiful-mermaid": "^1.1.3",
+    "pele": "^1.10.0",
+    "playwright-core": "^1.47.0"
+  }
+}

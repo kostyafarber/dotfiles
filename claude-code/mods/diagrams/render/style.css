@@ -1,0 +1,247 @@
+/* The look of show_diagram images: Paper Mono, ink lines and one accent on the terminal's background.
+   Pele reads the --pele-* variables; its class names and fill attributes style the rest.
+   The variables sit on :root so the patterns in patterns.js can use them too. */
+html, body { margin: 0; background: var(--pele-bg); }
+
+/* --term-bg / --term-fg are the active Rex theme's, set by mermaid.mjs; the fallbacks are
+   Newsprint Fog (light) and Misty Forest (dark). */
+:root {
+  --pele-bg: var(--term-bg, #f2f2f0);
+  --pele-fg: #222;
+  --pele-muted: #555;
+  --pele-line: #222;
+  --pele-border: #222;
+  --pele-surface: #F6F6F3;
+  --pele-surface-alt: #ECEBE6;
+  --pele-accent: #5E8FE0;
+  --pele-radius: 3px;
+  --pele-font: 'Paper Mono', ui-monospace, monospace;
+  --pele-font-mono: 'Paper Mono', ui-monospace, monospace;
+  /* 600 for anything bold; 700 only for titles. */
+  --pele-bold-weight: 600;
+  --pele-heading-weight: 600;
+  --pele-title-weight: 700;
+
+  /* Ink, the one accent, then muted code-token colours. */
+  --pele-series-1: #222;
+  --pele-series-2: #5E8FE0;
+  --pele-series-3: #2F7D4A;
+  --pele-series-4: #B4561F;
+  --pele-series-5: #7A4CC2;
+  --pele-series-6: #9A4A72;
+  --pele-series-7: #555;
+  --pele-series-8: #8A7A3A;
+}
+
+/* Dark: <html data-mode="dark">, set by mermaid.mjs from Claude Code's theme and by the
+   preview's toggle. */
+:root[data-mode="dark"] {
+  & {
+    --pele-bg: var(--term-bg, #131a16);
+    --pele-fg: var(--term-fg, #e4e6e1);
+    --pele-muted: color-mix(in srgb, var(--pele-fg) 65%, var(--pele-bg));
+    --pele-line: var(--pele-fg);
+    --pele-border: color-mix(in srgb, var(--pele-fg) 80%, var(--pele-bg));
+    --pele-surface: color-mix(in srgb, var(--pele-fg) 7%, var(--pele-bg));
+    --pele-surface-alt: color-mix(in srgb, var(--pele-fg) 12%, var(--pele-bg));
+    --pele-accent: #7ea8f2;
+
+    --pele-series-1: var(--pele-fg);
+    --pele-series-2: #7ea8f2;
+    --pele-series-3: #5fbf82;
+    --pele-series-4: #e8915a;
+    --pele-series-5: #ab8ff0;
+    --pele-series-6: #d482ab;
+    --pele-series-7: #9a9d98;
+    --pele-series-8: #d1b964;
+  }
+}
+
+#d { display: inline-block; padding: 20px 24px; }
+
+
+/* Series fills by default (timeline periods, journey sections, git branch labels…): a soft tint
+   of the colour, outlined in it. Matched on the fill Pele writes, so line strokes are untouched.
+   Charts below swap in patterns where texture carries meaning. */
+[fill^="var(--pele-series-1,"] { fill: color-mix(in srgb, var(--pele-series-1) 14%, var(--pele-bg)); stroke: var(--pele-series-1); }
+[fill^="var(--pele-series-2,"] { fill: color-mix(in srgb, var(--pele-series-2) 14%, var(--pele-bg)); stroke: var(--pele-series-2); }
+[fill^="var(--pele-series-3,"] { fill: color-mix(in srgb, var(--pele-series-3) 14%, var(--pele-bg)); stroke: var(--pele-series-3); }
+[fill^="var(--pele-series-4,"] { fill: color-mix(in srgb, var(--pele-series-4) 14%, var(--pele-bg)); stroke: var(--pele-series-4); }
+[fill^="var(--pele-series-5,"] { fill: color-mix(in srgb, var(--pele-series-5) 14%, var(--pele-bg)); stroke: var(--pele-series-5); }
+[fill^="var(--pele-series-6,"] { fill: color-mix(in srgb, var(--pele-series-6) 14%, var(--pele-bg)); stroke: var(--pele-series-6); }
+[fill^="var(--pele-series-7,"] { fill: color-mix(in srgb, var(--pele-series-7) 14%, var(--pele-bg)); stroke: var(--pele-series-7); }
+[fill^="var(--pele-series-8,"] { fill: color-mix(in srgb, var(--pele-series-8) 14%, var(--pele-bg)); stroke: var(--pele-series-8); }
+
+/* Pie: a different engraving per slice, like a 1910s printed chart, in the slice's colour with ink outlines. */
+.pele-pie [fill^="var(--pele-series-1,"] { fill: url(#engrave-1); }
+.pele-pie [fill^="var(--pele-series-2,"] { fill: url(#engrave-2); }
+.pele-pie [fill^="var(--pele-series-3,"] { fill: url(#engrave-3); }
+.pele-pie [fill^="var(--pele-series-4,"] { fill: url(#engrave-4); }
+.pele-pie [fill^="var(--pele-series-5,"] { fill: url(#engrave-5); }
+.pele-pie [fill^="var(--pele-series-6,"] { fill: url(#engrave-6); }
+.pele-pie [fill^="var(--pele-series-7,"] { fill: url(#engrave-7); }
+.pele-pie [fill^="var(--pele-series-8,"] { fill: url(#engrave-8); }
+.pele-pie [fill^="var(--pele-series-"] { stroke: var(--pele-fg); }
+.pele-pie .pele-slice { stroke-width: 1.25px; }
+/* Legend swatches are too small to show a pattern: solid in the slice's colour. */
+.pele-pie rect[fill^="var(--pele-series-1,"] { fill: var(--pele-series-1); }
+.pele-pie rect[fill^="var(--pele-series-2,"] { fill: var(--pele-series-2); }
+.pele-pie rect[fill^="var(--pele-series-3,"] { fill: var(--pele-series-3); }
+.pele-pie rect[fill^="var(--pele-series-4,"] { fill: var(--pele-series-4); }
+.pele-pie rect[fill^="var(--pele-series-5,"] { fill: var(--pele-series-5); }
+.pele-pie rect[fill^="var(--pele-series-6,"] { fill: var(--pele-series-6); }
+.pele-pie rect[fill^="var(--pele-series-7,"] { fill: var(--pele-series-7); }
+.pele-pie rect[fill^="var(--pele-series-8,"] { fill: var(--pele-series-8); }
+
+/* Bars: a colour each, cycling through the palette from the accent; hatched and outlined. */
+.pele-bars rect:nth-of-type(8n + 1) { fill: url(#hatch-2); stroke: var(--pele-series-2); }
+.pele-bars rect:nth-of-type(8n + 2) { fill: url(#hatch-3); stroke: var(--pele-series-3); }
+.pele-bars rect:nth-of-type(8n + 3) { fill: url(#hatch-4); stroke: var(--pele-series-4); }
+.pele-bars rect:nth-of-type(8n + 4) { fill: url(#hatch-5); stroke: var(--pele-series-5); }
+.pele-bars rect:nth-of-type(8n + 5) { fill: url(#hatch-6); stroke: var(--pele-series-6); }
+.pele-bars rect:nth-of-type(8n + 6) { fill: url(#hatch-8); stroke: var(--pele-series-8); }
+.pele-bars rect:nth-of-type(8n + 7) { fill: url(#hatch-7); stroke: var(--pele-series-7); }
+.pele-bars rect:nth-of-type(8n + 8) { fill: url(#hatch-1); stroke: var(--pele-series-1); }
+
+/* Lines: solid markers on a solid line, not the series pattern. */
+.pele-line[fill^="var(--pele-series-"] { stroke: none; }
+.pele-line[fill^="var(--pele-series-1,"] { fill: var(--pele-series-1); }
+.pele-line[fill^="var(--pele-series-2,"] { fill: var(--pele-series-2); }
+.pele-line[fill^="var(--pele-series-3,"] { fill: var(--pele-series-3); }
+.pele-line[fill^="var(--pele-series-4,"] { fill: var(--pele-series-4); }
+.pele-line[fill^="var(--pele-series-5,"] { fill: var(--pele-series-5); }
+.pele-line[fill^="var(--pele-series-6,"] { fill: var(--pele-series-6); }
+.pele-line[fill^="var(--pele-series-7,"] { fill: var(--pele-series-7); }
+.pele-line[fill^="var(--pele-series-8,"] { fill: var(--pele-series-8); }
+.pele-line circle { r: 4px; }
+
+/* Points and git commits: solid dots, not patterns. Main-branch commits green. */
+.pele-points[fill^="var(--pele-series-1,"] { fill: var(--pele-accent); stroke: none; }
+.pele-commit circle[fill^="var(--pele-series-"] { stroke: none; }
+.pele-commit circle[fill^="var(--pele-series-1,"] { fill: var(--pele-series-3); }
+.pele-commit circle[fill^="var(--pele-series-2,"] { fill: var(--pele-series-2); }
+.pele-commit circle[fill^="var(--pele-series-3,"] { fill: var(--pele-series-3); }
+.pele-commit circle[fill^="var(--pele-series-4,"] { fill: var(--pele-series-4); }
+
+/* Subgraphs: a solid tint of their colour (--tint, set by decorate.js), and the title on a light
+   pill outlined in it, like Figma sections. */
+.pele-cluster > rect:first-child {
+  fill: color-mix(in srgb, var(--tint, var(--pele-accent)) 18%, var(--pele-bg));
+  fill-opacity: 1;
+  stroke: color-mix(in srgb, var(--tint, var(--pele-accent)) 70%, var(--pele-bg));
+}
+.ctree-pill { fill: var(--pele-surface); stroke: var(--tint, var(--pele-accent)); stroke-width: 2.5px; }
+.pele-cluster > .pele-cluster-label { fill: var(--pele-fg); font-weight: 500; }
+
+/* Focus nodes (classDef focus): double accent outline (the outer ring from decorate.js), accent text. */
+.pele-node.focus > rect:not(.ctree-focus-ring) { stroke: var(--pele-accent) !important; stroke-width: 1.25px !important; }
+.ctree-focus-ring { fill: none; stroke: var(--pele-accent); stroke-width: 1.25px; rx: calc(var(--pele-radius) + 3px); }
+.pele-node.focus text { fill: var(--pele-accent); font-weight: 600; }
+
+/* Treemap: coloured hatching per tile, cycling through the palette like the bars. */
+.pele-leaves .pele-leaf:nth-of-type(8n + 1) > rect { fill: url(#hatch-2); stroke: var(--pele-series-2); }
+.pele-leaves .pele-leaf:nth-of-type(8n + 2) > rect { fill: url(#hatch-3); stroke: var(--pele-series-3); }
+.pele-leaves .pele-leaf:nth-of-type(8n + 3) > rect { fill: url(#hatch-4); stroke: var(--pele-series-4); }
+.pele-leaves .pele-leaf:nth-of-type(8n + 4) > rect { fill: url(#hatch-5); stroke: var(--pele-series-5); }
+.pele-leaves .pele-leaf:nth-of-type(8n + 5) > rect { fill: url(#hatch-6); stroke: var(--pele-series-6); }
+.pele-leaves .pele-leaf:nth-of-type(8n + 6) > rect { fill: url(#hatch-8); stroke: var(--pele-series-8); }
+.pele-leaves .pele-leaf:nth-of-type(8n + 7) > rect { fill: url(#hatch-7); stroke: var(--pele-series-7); }
+.pele-leaves .pele-leaf:nth-of-type(8n + 8) > rect { fill: url(#hatch-1); stroke: var(--pele-series-1); }
+
+/* Gantt: done tasks hatched in ink, active ones a soft tint of the accent. */
+.pele-gantt rect[fill="var(--_a)"] { fill: url(#hatch-1); }
+.pele-gantt rect[fill="var(--_c)"] { fill: color-mix(in srgb, var(--pele-accent) 14%, var(--pele-bg)); fill-opacity: 1; }
+
+/* Text over patterns (pie, treemap, gantt): ink with a halo of the background colour, so it
+   reads over any fill. Pele paints these in the background colour. */
+.pele-slice-labels text,
+.pele-leaves text,
+.pele-gantt text.pele-label {
+  fill: var(--pele-fg);
+  stroke: var(--pele-bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+/* Git branch labels and timeline periods sit on a tint: plain ink text, no halo. */
+.pele-branch text,
+.pele-period text { fill: var(--pele-fg); }
+
+/* Notes (state, sequence): plain surface, normal outline, ink text. */
+.pele-note > :is(rect, path):first-child,
+.pele-notes .pele-note > rect {
+  fill: var(--pele-surface);
+  stroke: var(--pele-border);
+}
+.pele-note text { fill: var(--pele-fg); }
+
+/* Edges leaving or entering a subgraph take its colour (decorate.js marks them); the rest stay ink. */
+.pele-edge.ctree-tinted > path:not(.pele-marker) { stroke: var(--tint); }
+.pele-edge.ctree-tinted > .pele-marker { fill: var(--tint); }
+
+/* Packet: each field hatched in its own colour, cycling through the palette. */
+.pele-packet .pele-node:nth-of-type(8n + 1) > rect { fill: url(#hatch-2); stroke: var(--pele-series-2); }
+.pele-packet .pele-node:nth-of-type(8n + 2) > rect { fill: url(#hatch-3); stroke: var(--pele-series-3); }
+.pele-packet .pele-node:nth-of-type(8n + 3) > rect { fill: url(#hatch-4); stroke: var(--pele-series-4); }
+.pele-packet .pele-node:nth-of-type(8n + 4) > rect { fill: url(#hatch-5); stroke: var(--pele-series-5); }
+.pele-packet .pele-node:nth-of-type(8n + 5) > rect { fill: url(#hatch-6); stroke: var(--pele-series-6); }
+.pele-packet .pele-node:nth-of-type(8n + 6) > rect { fill: url(#hatch-8); stroke: var(--pele-series-8); }
+.pele-packet .pele-node:nth-of-type(8n + 7) > rect { fill: url(#hatch-7); stroke: var(--pele-series-7); }
+.pele-packet .pele-node:nth-of-type(8n + 8) > rect { fill: url(#hatch-1); stroke: var(--pele-series-1); }
+
+/* Agentflow: plain nodes; the flow's group carries the colour. */
+.pele-agentflow .pele-node > :is(rect, polygon, path):first-child {
+  fill: var(--pele-surface);
+  fill-opacity: 1;
+  stroke: var(--pele-border);
+}
+
+/* Event modelling: node names regular, like nodes everywhere else. */
+.pele-eventmodeling .pele-node text { font-weight: 400; }
+
+/* Architecture: the group's pill names it; its own icon beside the pill is noise. */
+.pele-architecture .pele-cluster > .pele-icon { display: none; }
+
+/* Card look (sketch): a plain card style on Pele's layout. White square nodes, ink lines,
+   groups a soft tint inside a solid ink border; the focus node keeps its double accent box. Opt in
+   with data-look="card". */
+:root[data-look="card"] {
+  --pele-radius: 0px;
+  --card-node: #fff;
+  .pele-node:not(.pele-state-start, .pele-state-end) > :is(rect, path, polygon, ellipse, circle):first-child { fill: var(--card-node); }
+  .pele-cluster > rect:first-child { fill: color-mix(in srgb, var(--tint, var(--pele-accent)) 12%, var(--pele-bg)); stroke: var(--pele-fg); stroke-width: 1px; }
+  .ctree-pill { fill: none; stroke: none; }
+  .pele-edge.ctree-tinted > path:not(.pele-marker) { stroke: var(--pele-line); }
+  .pele-edge.ctree-tinted > .pele-marker { fill: var(--pele-line); }
+}
+/* The window frame: title bar, ink border, hard 3px shadow. */
+:root[data-look="card"][data-mode="dark"] { --card-node: #000; }
+.ctree-card { display: inline-block; border: 1px solid var(--pele-fg); box-shadow: 3px 3px 0 var(--pele-fg); background: var(--pele-bg); }
+.ctree-card > header { display: flex; justify-content: space-between; height: 37px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--pele-fg); font: 14px 'Paper Mono', monospace; color: var(--pele-fg); }
+
+/* Sequence focus (rect … end around the key steps): a soft accent band; lines and text stay ink. */
+.ctree-focus-band { fill: color-mix(in srgb, var(--pele-accent) 12%, var(--pele-bg)) !important; stroke: var(--pele-accent); stroke-width: 1.25px; }
+
+/* Several bar series: one colour per series (decorate.js tags them), not per bar. */
+.ctree-multi .pele-bars.ctree-s2 rect { fill: url(#hatch-2); stroke: var(--pele-series-2); }
+.ctree-multi .pele-bars.ctree-s3 rect { fill: url(#hatch-3); stroke: var(--pele-series-3); }
+.ctree-multi .pele-bars.ctree-s4 rect { fill: url(#hatch-4); stroke: var(--pele-series-4); }
+.ctree-multi .pele-bars.ctree-s5 rect { fill: url(#hatch-5); stroke: var(--pele-series-5); }
+.ctree-multi .pele-bars.ctree-s6 rect { fill: url(#hatch-6); stroke: var(--pele-series-6); }
+.ctree-multi .pele-bars.ctree-s8 rect { fill: url(#hatch-8); stroke: var(--pele-series-8); }
+.ctree-multi .pele-bars.ctree-s7 rect { fill: url(#hatch-7); stroke: var(--pele-series-7); }
+.ctree-multi .pele-bars.ctree-s1 rect { fill: url(#hatch-1); stroke: var(--pele-series-1); }
+
+/* Key line under a chart (`%% key: a, b`). */
+.ctree-key { display: flex; gap: 18px; justify-content: center; padding: 6px 0 2px; font: 13px 'Paper Mono', monospace; color: var(--pele-fg); }
+.ctree-key span { display: inline-flex; align-items: center; gap: 6px; }
+.ctree-key i { width: 11px; height: 11px; border: 1px solid var(--pele-fg); }
+
+/* Card look: the frame's header already carries the title, so the diagram's own copy goes. */
+:root[data-look="card"] .ctree-card .pele-title { display: none; }
+
+/* Packet: the set fields (`*` labels) keep their own colour, a little bolder; the rest fade. */
+.pele-packet .ctree-set > rect { stroke-width: 1.75px; }
+.pele-packet .ctree-unset { opacity: 0.35; }
+.pele-packet .ctree-unset > rect { stroke: var(--pele-muted) !important; fill: transparent !important; }

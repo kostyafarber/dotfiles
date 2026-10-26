@@ -1,0 +1,5 @@
+node_modules/
+package-lock.json
+# Private (tldraw) samples live in ~/.dotfiles/work; these are links to them.
+preview.html
+preview-icons.js

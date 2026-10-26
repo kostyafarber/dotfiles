@@ -17,7 +17,7 @@ Confusion usually comes from undefined nouns and missing links, not missing deta
 
    Every term used later must appear here first. Use the user's own words for parts when they have them. When two names mean the same thing (the "sidebar" vs the "global entrypoint"), say so in the row.
 3. **Wiring.** Who talks to whom, and over what: HTTP, postMessage, IPC, WebSocket, a tool call or a file. Use one line per connection:
-   `iframe → host: postMessage (ui/request)`. If there are five or more parts, add a small ASCII diagram, or offer to draw it as cards with the diagram-cards skill.
+   `iframe → host: postMessage (ui/request)`. If there are five or more parts, draw it with the explain-with-diagrams skill (one inline diagram).
 4. **One trace.** Number the steps of a single real run with concrete values, like real URLs, ids and payload fields from the code or logs:
    `3. server → clerk: POST /oauth/token {code: "ODMY…", redirect_uri: "http://127.0.0.1:51725/callback"}`
    Cite `file:line` for each hop you verified. Mark any hop you inferred as *inferred*.

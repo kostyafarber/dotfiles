@@ -1,0 +1,5 @@
+{
+  "name": "diagrams",
+  "version": "0.1.0",
+  "description": "Inline diagrams in the chat: show_diagram (Mermaid, card look), show_tree, show_code"
+}
