@@ -1,4 +1,7 @@
 {
+  "attribution": {
+    "commit": ""
+  },
   "hooks": {
     "Notification": [
       {
@@ -34,6 +37,16 @@
       }
     ]
   },
+  "enabledPlugins": {
+    "paper-desktop@paper": true,
+    "swift-lsp@claude-plugins-official": true,
+    "ralph-wiggum@claude-plugins-official": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true,
+    "obsidian@obsidian-skills": true,
+    "skill-creator@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {
     "paper": {
       "source": {
@@ -62,20 +75,7 @@
     }
   },
   "skipDangerousModePermissionPrompt": true,
-  "theme": "light",
+  "theme": "auto",
   "editorMode": "vim",
-  "enabledPlugins": {
-    "paper-desktop@paper": true,
-    "swift-lsp@claude-plugins-official": true,
-    "ralph-wiggum@claude-plugins-official": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "clangd-lsp@claude-plugins-official": true,
-    "obsidian@obsidian-skills": true,
-    "skill-creator@claude-plugins-official": true
-  },
-  "attribution": {
-    "commit": ""
-  },
   "agentPushNotifEnabled": true
 }
