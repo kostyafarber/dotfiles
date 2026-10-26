@@ -36,6 +36,8 @@ return {
                 end,
                 desc = "Review: pick a pull request",
             },
+            -- A dev app from this checkout in a pane below; switching PRs closes it.
+            { "<leader>vr", function() require("review_ext.pr").run_app() end, desc = "Review: run a dev app here" },
             { "<leader>vn", ":Review note<cr>", mode = { "n", "v" }, desc = "Review: note here" },
             { "<leader>ve", "<cmd>Review edit<cr>", desc = "Review: edit comment" },
             { "<leader>vd", "<cmd>Review delete<cr>", desc = "Review: delete comment" },

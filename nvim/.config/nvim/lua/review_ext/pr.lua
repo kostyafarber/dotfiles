@@ -103,6 +103,25 @@ local function sha(dir, ref)
     return res.code == 0 and vim.trim(res.stdout) or nil
 end
 
+-- The worktree that has `branch` checked out, if any.
+local function holder(root, branch)
+    local path
+    for line in run({ "git", "worktree", "list", "--porcelain" }, root):gmatch("[^\n]+") do
+        path = line:match("^worktree (.+)$") or path
+        if line == "branch refs/heads/" .. branch then return path end
+    end
+end
+
+-- The Rex pane running a dev app from the review checkout, which a PR switch closes.
+local app_block
+
+-- Closes the pane {@link M.run_app} opened, so an app never runs on a half-switched checkout.
+local function stop_app()
+    if not app_block then return end
+    vim.system({ "rex", "block", "close", app_block }):wait()
+    app_block = nil
+end
+
 -- Puts `branch` at `target`, carrying uncommitted edits across.
 local function move_branch(dir, branch, target)
     local dirty = run({ "git", "status", "--porcelain" }, dir) ~= ""
@@ -111,66 +130,9 @@ local function move_branch(dir, branch, target)
     if dirty then run({ "git", "stash", "pop", "-q" }, dir) end
 end
 
----Checks PR `pr` out in the review checkout, carrying each PR's comments and edits, and opens
----it in review.nvim in this nvim at the first file not yet marked reviewed.
----
----Opens from the PR as last fetched when there is a copy, and fetches in the background; new
----commits are reported, and taken the next time the PR is opened. Only a PR never fetched
----waits on the network.
----@param pr { number: integer, headRefName: string, baseRefName: string, isCrossRepository: boolean }
----@param root string the repository's main checkout
-function M.open(pr, root)
-    local n = pr.number
-    local dir = root .. "-review"
-    local branch = "review/pr-" .. n
-    local head_ref, base_ref, refspecs = refs(pr)
-    local fetch = vim.list_extend({ "git", "fetch", "-q", "origin" }, refspecs)
-
-    if not vim.uv.fs_stat(dir) then
-        run({ "git", "worktree", "add", "-q", "--detach", dir, base_ref }, root)
-    end
-
-    local fetched = false
-    if not (sha(dir, head_ref) and sha(dir, base_ref)) then
-        run(fetch, dir)
-        fetched = true
-    end
-    local head_sha = sha(dir, head_ref)
-
-    local current = run({ "git", "branch", "--show-current" }, dir)
-    if current ~= branch then
-        close_open_review()
-        if current ~= "" then
-            if run({ "git", "status", "--porcelain" }, dir) ~= "" then
-                run({ "git", "stash", "push", "-u", "-m", "review " .. current }, dir)
-            end
-            move_store(dir, current, false)
-        end
-
-        run({ "git", "checkout", "-q", "-B", branch, "--no-track", head_sha }, dir)
-
-        local stash = stash_ref(dir, branch)
-        if stash then run({ "git", "stash", "pop", "-q", stash }, dir) end
-        move_store(dir, branch, true)
-        require("review.store").reset()
-        require("review.reviewed").reset()
-        vim.system({ "pnpm", "install", "--frozen-lockfile", "--prefer-offline", "--reporter=silent" },
-            { cwd = dir, detach = true })
-    elseif sha(dir, "HEAD") ~= head_sha then
-        -- The PR moved since this review last opened.
-        close_open_review()
-        move_branch(dir, branch, head_sha)
-    end
-
-    if not fetched then
-        vim.system(fetch, { cwd = dir, text = true }, vim.schedule_wrap(function(res)
-            if res.code == 0 and sha(dir, head_ref) ~= head_sha then
-                vim.notify(("PR #%d has new commits; open it again to review them"):format(n),
-                    vim.log.levels.INFO, { title = "Review" })
-            end
-        end))
-    end
-
+-- Opens `branch` of checkout `dir` in review.nvim against `base_ref`, at the first file not yet
+-- marked reviewed.
+local function show(dir, branch, base_ref)
     -- The review's tab inherits this tab's directory when codediff opens it; this tab then
     -- goes back to where it was.
     local win, previous = vim.api.nvim_get_current_win(), vim.fn.getcwd()
@@ -193,6 +155,89 @@ function M.open(pr, root)
             vim.defer_fn(function() resume(tab, 20) end, 100)
         end,
     })
+end
+
+---Checks PR `pr` out in the review checkout, carrying each PR's comments and edits, and opens
+---it in review.nvim in this nvim at the first file not yet marked reviewed.
+---
+---Opens from the PR as last fetched when there is a copy, and fetches in the background; new
+---commits are reported, and taken the next time the PR is opened. Only a PR never fetched
+---waits on the network.
+---@param pr { number: integer, headRefName: string, baseRefName: string, isCrossRepository: boolean }
+---@param root string the repository's main checkout
+function M.open(pr, root)
+    local n = pr.number
+    local dir = root .. "-review"
+    local branch = "review/pr-" .. n
+    local head_ref, base_ref, refspecs = refs(pr)
+    local fetch = vim.list_extend({ "git", "fetch", "-q", "origin" }, refspecs)
+
+    -- The look skill's review-pr gives a PR its own worktree on the same branch name, and git
+    -- won't check a branch out twice; review the PR there instead, as that worktree has it.
+    local elsewhere = holder(root, branch)
+    if elsewhere and elsewhere ~= vim.fs.normalize(dir) then
+        close_open_review()
+        return show(elsewhere, branch, base_ref)
+    end
+
+    if not vim.uv.fs_stat(dir) then
+        run({ "git", "worktree", "add", "-q", "--detach", dir, base_ref }, root)
+    end
+
+    local fetched = false
+    if not (sha(dir, head_ref) and sha(dir, base_ref)) then
+        run(fetch, dir)
+        fetched = true
+    end
+    local head_sha = sha(dir, head_ref)
+
+    local current = run({ "git", "branch", "--show-current" }, dir)
+    if current ~= branch then
+        close_open_review()
+        stop_app()
+        if current ~= "" then
+            if run({ "git", "status", "--porcelain" }, dir) ~= "" then
+                run({ "git", "stash", "push", "-u", "-m", "review " .. current }, dir)
+            end
+            move_store(dir, current, false)
+        end
+
+        run({ "git", "checkout", "-q", "-B", branch, "--no-track", head_sha }, dir)
+
+        local stash = stash_ref(dir, branch)
+        if stash then run({ "git", "stash", "pop", "-q", stash }, dir) end
+        move_store(dir, branch, true)
+        require("review.store").reset()
+        require("review.reviewed").reset()
+        vim.system({ "pnpm", "install", "--frozen-lockfile", "--prefer-offline", "--reporter=silent" },
+            { cwd = dir, detach = true })
+    elseif sha(dir, "HEAD") ~= head_sha then
+        -- The PR moved since this review last opened.
+        close_open_review()
+        stop_app()
+        move_branch(dir, branch, head_sha)
+    end
+
+    if not fetched then
+        vim.system(fetch, { cwd = dir, text = true }, vim.schedule_wrap(function(res)
+            if res.code == 0 and sha(dir, head_ref) ~= head_sha then
+                vim.notify(("PR #%d has new commits; open it again to review them"):format(n),
+                    vim.log.levels.INFO, { title = "Review" })
+            end
+        end))
+    end
+
+    show(dir, branch, base_ref)
+end
+
+---Runs the repo's default dev app (dev-app) from this tab's checkout in a Rex pane below, so edits
+---made in the review hot-reload into it. Opening a different PR closes the pane.
+function M.run_app()
+    if app_block then stop_app() end
+    local dir = run({ "git", "rev-parse", "--show-toplevel" }, vim.fn.getcwd())
+    local cmd = { "rex", "split", "--split=below", "--ratio", "35", "-c", dir }
+    if vim.env.REX_BLOCK then vim.list_extend(cmd, { "-b", vim.env.REX_BLOCK }) end
+    app_block = run(vim.list_extend(cmd, { "--", vim.fn.expand("~/.dotfiles/work/bin/dev-app") }), dir)
 end
 
 -- The last PR list per repository, so the picker opens at once while it refreshes.

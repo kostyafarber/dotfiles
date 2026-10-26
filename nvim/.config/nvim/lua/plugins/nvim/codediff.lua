@@ -76,11 +76,34 @@ return {
         },
     },
     config = function(_, opts)
-        -- GitHub's diff colours: a soft tint on changed lines, a stronger one on the changed words.
-        local github = vim.o.background == "dark"
-            and { line_insert = "#12261e", line_delete = "#25171c", char_insert = "#1f572d", char_delete = "#6b2b2e" }
-            or { line_insert = "#e6ffec", line_delete = "#ffebe9", char_insert = "#abf2bc", char_delete = "#ffcecb" }
-        opts.highlights = vim.tbl_extend("force", opts.highlights or {}, github)
+        -- GitHub's diff green and red mixed into the editor's own background: a soft tint on changed
+        -- lines, a stronger one on the changed words. Fixed hex tints vanish on some Rex themes
+        -- (Misty Forest's #131a16 is almost GitHub's dark #12261e), so they follow Normal's bg.
+        local function diff_colours()
+            local bg = vim.api.nvim_get_hl(0, { name = "Normal", link = false }).bg
+                or (vim.o.background == "dark" and 0x0d1117 or 0xffffff)
+            local dark = vim.o.background == "dark"
+            local function mix(colour, amount)
+                local out = 0
+                for shift = 16, 0, -8 do
+                    local a, b = bit.band(bit.rshift(bg, shift), 0xff), bit.band(bit.rshift(colour, shift), 0xff)
+                    out = out * 256 + math.floor(a + (b - a) * amount + 0.5)
+                end
+                return string.format("#%06x", out)
+            end
+            local green, red = 0x2ea043, 0xf85149
+            local line, char = dark and 0.2 or 0.14, dark and 0.42 or 0.32
+            return { line_insert = mix(green, line), line_delete = mix(red, line), char_insert = mix(green, char), char_delete = mix(red, char) }
+        end
+        -- Created before codediff's own ColorScheme autocmd, so codediff re-reads these fresh.
+        vim.api.nvim_create_autocmd("ColorScheme", {
+            group = vim.api.nvim_create_augroup("codediff-colours", { clear = true }),
+            callback = function()
+                local config = require("codediff.config").options
+                config.highlights = vim.tbl_extend("force", config.highlights or {}, diff_colours())
+            end,
+        })
+        opts.highlights = vim.tbl_extend("force", opts.highlights or {}, diff_colours())
         require("codediff").setup(opts)
         local group = vim.api.nvim_create_augroup("codediff-tidy", { clear = true })
         vim.api.nvim_create_autocmd("User", {
