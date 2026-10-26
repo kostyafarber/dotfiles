@@ -47,13 +47,15 @@ local function set_highlights()
     vim.api.nvim_set_hl(0, "ReviewResolved", { fg = pink, bold = true, default = true })
     vim.api.nvim_set_hl(0, "ReviewBarResolved", { fg = pink, default = true })
     vim.api.nvim_set_hl(0, "ReviewCardResolved", { link = "Comment", default = true })
-    vim.api.nvim_set_hl(0, "ReviewCardBody", { link = "Comment", default = true })
     vim.api.nvim_set_hl(0, "ReviewCardMeta", { link = "Comment", default = true })
 
     -- review.nvim hard-codes dark backgrounds for commented lines. Tint each type's colour into
     -- this theme's background instead, so light themes get a light band.
     local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
     local bg = normal.bg or (vim.o.background == "light" and 0xffffff or 0x000000)
+    -- The body is read, not skimmed: nearly the full text colour, upright, a step under the title.
+    local text = normal.fg or (vim.o.background == "light" and 0x000000 or 0xffffff)
+    vim.api.nvim_set_hl(0, "ReviewCardBody", { fg = blend(text, bg, 0.85), default = true })
     for type, group in pairs({ Note = "ReviewNote", Suggestion = "ReviewSuggestion", Issue = "ReviewIssue",
         Praise = "ReviewPraise" }) do
         local fg = vim.api.nvim_get_hl(0, { name = group, link = false }).fg
@@ -203,12 +205,25 @@ local function attach_row(c)
     return c.line == 0 and 0 or (c.line_end or c.line) - 1
 end
 
+-- Resolved comments are hidden until shown with toggle_show_resolved.
+M.show_resolved = false
+
+local function shown(c)
+    return M.show_resolved or not c.resolved
+end
+
+-- The comments drawn in bufnr: the file's comments on `side`, less hidden resolved ones.
+local function shown_for_file(file, side)
+    return vim.tbl_filter(shown, store().get_for_file(file, side))
+end
+
 -- Swap review.nvim's boxes in bufnr for cards, keeping each extmark's id and other options.
+-- A hidden comment's marks are removed.
 local function restyle(bufnr, side, file_override)
     local file = buffer_file(bufnr, file_override)
     if not file then return end
     local by_row = {}
-    for _, c in ipairs(store().get_for_file(file, side)) do
+    for _, c in ipairs(shown_for_file(file, side)) do
         local r = attach_row(c)
         by_row[r] = by_row[r] or {}
         table.insert(by_row[r], c)
@@ -230,7 +245,9 @@ local function restyle(bufnr, side, file_override)
         local c = covering[r]
         local queue = by_row[r]
         local card = d.virt_lines and queue and #queue > 0 and table.remove(queue, 1) or nil
-        if c or card then
+        if not (c or card) then
+            pcall(vim.api.nvim_buf_del_extmark, bufnr, ns, id)
+        else
             local owner = card or c
             local bar = owner.resolved and "ReviewBarResolved"
                 or owner.author == "claude" and "ReviewBarClaude"
@@ -240,7 +257,7 @@ local function restyle(bufnr, side, file_override)
                 sign_text = "▍",
                 sign_hl_group = bar,
                 line_hl_group = not owner.resolved and d.line_hl_group or nil,
-                virt_lines = card and M.card(card, width) or d.virt_lines,
+                virt_lines = card and M.card(card, width) or nil,
                 virt_lines_above = d.virt_lines_above,
             })
         end
@@ -259,7 +276,7 @@ local function align_buffers(orig_buf, mod_buf, orig_file, mod_file)
         local map = {}
         if not file then return map end
         local width = card_width(bufnr)
-        for _, c in ipairs(store().get_for_file(file, side)) do
+        for _, c in ipairs(shown_for_file(file, side)) do
             if c.line ~= 0 and (c.side or "new") == side then
                 local r = attach_row(c)
                 map[r] = (map[r] or 0) + #M.card(c, width)
@@ -319,6 +336,12 @@ function M.set_resolved(id, resolved, by)
     return c
 end
 
+function M.toggle_show_resolved()
+    M.show_resolved = not M.show_resolved
+    refresh_all()
+    vim.notify(M.show_resolved and "Showing resolved comments" or "Hiding resolved comments")
+end
+
 function M.toggle_resolved_at_cursor()
     local file, line, side = require("review.hooks").get_cursor_position()
     local c = file and store().get_at_line(file, line, side)
@@ -326,12 +349,98 @@ function M.toggle_resolved_at_cursor()
     M.set_resolved(c.id, nil, "you")
 end
 
--- Marks the file viewed (or not) and moves to the next unviewed one: review.nvim's own
--- buffer-local <localleader>cr, so the behaviour stays theirs.
+-- Marks the file viewed (or not) and moves to the next unviewed one, with review.nvim's own
+-- toggle. Called directly: its buffer-local key is missing from some of a review tab's buffers.
 function M.toggle_viewed()
-    local map = vim.fn.maparg("<LocalLeader>cr", "n", false, true)
-    if map.callback then return map.callback() end
-    vim.notify("Mark viewed works in the diff of a review tab", vim.log.levels.INFO)
+    if vim.bo.filetype == "codediff-explorer" then
+        local line = vim.fn.line(".")
+        return M.toggle_viewed_rows(line, line)
+    end
+    local explorer = require("review.hooks").get_explorer(vim.api.nvim_get_current_tabpage())
+    if not explorer then
+        return vim.notify("Mark viewed works in a review tab", vim.log.levels.INFO)
+    end
+    require("review.reviewed").toggle_current(explorer)
+end
+
+-- Moving on to the next file in the list, by ]c past the last hunk or any other way, marks the
+-- file left behind viewed. Going back or jumping elsewhere marks nothing.
+local last_file = {} -- by tabpage: { path, group } of the file shown before this one
+
+-- review.nvim's mark key for `file` ("<old blob> <new blob> <path>", review/reviewed.lua),
+-- which it keeps private.
+local function mark_key(explorer, file)
+    local root = explorer.data.git_root
+    local old, new = require("review.reviewed").sides(explorer.data, file)
+    local specs = new and { old, new } or { old }
+    local out = vim.fn.systemlist({ "git", "-C", root, "cat-file", "--batch-check=%(objectname)" }, specs)
+    local old_blob = (out[1] or ""):match("^%x+$") or "missing"
+    local new_blob
+    if new then
+        new_blob = (out[2] or ""):match("^%x+$") or "missing"
+    elseif vim.uv.fs_stat(root .. "/" .. file.path) then
+        new_blob = vim.fn.systemlist({ "git", "-C", root, "hash-object", "--", file.path })[1] or "missing"
+    else
+        new_blob = "missing"
+    end
+    return ("%s %s %s"):format(old_blob, new_blob, file.path)
+end
+
+local function mark_left_file_viewed(tab)
+    local explorer = require("review.hooks").get_explorer(tab)
+    if not (explorer and explorer.data.git_root) then return end
+    local current = { path = explorer.data.current_file_path, group = explorer.data.current_file_group }
+    local left = last_file[tab]
+    last_file[tab] = current
+    if not left then return end
+
+    local files = vim.tbl_map(function(entry) return entry.data end,
+        require("codediff.ui.explorer.tree").get_all_files(explorer.tree))
+    local function index_of(f)
+        for i, file in ipairs(files) do
+            if file.path == f.path and file.group == f.group then return i end
+        end
+    end
+    local from, to = index_of(left), index_of(current)
+    if not (from and to and to == from + 1) then return end
+
+    local reviewed = require("review.reviewed")
+    local file = files[from]
+    if reviewed.is_reviewed(explorer, file) then return end
+    local storage = require("review.storage")
+    local marks = storage.load_reviewed()
+    marks[mark_key(explorer, file)] = os.time()
+    storage.save_reviewed(marks)
+    reviewed.reset() -- drops its cached marks and redraws the file panel
+    vim.notify("Viewed " .. file.path, vim.log.levels.INFO, { title = "review.nvim" })
+end
+
+---Marks the files on rows `first`..`last` of the review's file panel viewed, or unmarks them
+---when they all are already. For a visual selection in the panel.
+function M.toggle_viewed_rows(first, last)
+    local explorer = require("review.hooks").get_explorer(vim.api.nvim_get_current_tabpage())
+    if not (explorer and explorer.data.git_root) then
+        return vim.notify("Mark viewed works in a review tab", vim.log.levels.INFO)
+    end
+    local reviewed = require("review.reviewed")
+    local files = {}
+    for line = math.min(first, last), math.max(first, last) do
+        local node = explorer.tree:get_node(line)
+        local file = node and node.data
+        if file and file.path and file.group then table.insert(files, file) end
+    end
+    if #files == 0 then return end
+
+    local unmark = vim.iter(files):all(function(file) return reviewed.is_reviewed(explorer, file) end)
+    local storage = require("review.storage")
+    local marks = storage.load_reviewed()
+    for _, file in ipairs(files) do
+        marks[mark_key(explorer, file)] = not unmark and os.time() or nil
+    end
+    storage.save_reviewed(marks)
+    reviewed.reset()
+    vim.notify(("%s %d file%s"):format(unmark and "Unmarked" or "Viewed", #files, #files == 1 and "" or "s"),
+        vim.log.levels.INFO, { title = "review.nvim" })
 end
 
 function M.reply_at_cursor()
@@ -359,7 +468,7 @@ function M.comment_input(initial_type, initial_text, callback)
         size = { width = width, height = 6 },
         border = {
             style = "rounded",
-            text = { top = " Comment ", top_align = "left", bottom = " Ctrl-S save · q cancel ", bottom_align = "right" },
+            text = { top = " Comment ", top_align = "left", bottom = " normal-mode Enter save · q cancel ", bottom_align = "right" },
         },
         win_options = { winhighlight = "Normal:Normal,FloatBorder:FloatBorder", wrap = true, linebreak = true },
         buf_options = { filetype = "markdown" },
@@ -382,8 +491,8 @@ function M.comment_input(initial_type, initial_text, callback)
         local text = table.concat(vim.api.nvim_buf_get_lines(popup.bufnr, 0, -1, false), "\n"):gsub("%s+$", "")
         close(text)
     end
-    popup:map("n", "<C-s>", submit, { noremap = true })
-    popup:map("i", "<C-s>", submit, { noremap = true })
+    -- Enter in insert mode is a new line, as in any text; Enter in normal mode saves.
+    popup:map("n", "<CR>", submit, { noremap = true })
     popup:map("n", "q", function() close(nil) end, { noremap = true })
     popup:map("n", "<Esc>", function() close(nil) end, { noremap = true })
     popup:on("BufLeave", function() close(nil) end)
@@ -498,6 +607,15 @@ function M.setup()
         group = group,
         callback = function() pcall(refresh_all) end,
     })
+    vim.api.nvim_create_autocmd("User", {
+        group = group,
+        pattern = "CodeDiffFileSelect",
+        callback = function(args)
+            local tab = (args.data or {}).tabpage or vim.api.nvim_get_current_tabpage()
+            vim.schedule(function() pcall(mark_left_file_viewed, tab) end)
+        end,
+    })
+    vim.api.nvim_create_autocmd("TabClosed", { group = group, callback = function() last_file = {} end })
     vim.keymap.set("n", "<localleader>cR", M.reply_at_cursor, { desc = "Review: reply to the comment here" })
 end
 

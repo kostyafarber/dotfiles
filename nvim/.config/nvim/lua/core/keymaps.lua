@@ -11,6 +11,18 @@ k("n", "<leader>qq", "<cmd>xa<cr>", { desc = "Save all and quit" })
 k("n", "<leader>-", "<cmd>split<cr>",  { desc = "Split horizontal" })
 k("n", "<leader>|", "<cmd>vsplit<cr>", { desc = "Split vertical" })
 
+k("n", "<leader>tn", "<cmd>tabnew<cr>",   { desc = "New tab" })
+-- Close the tab; on the last tab, close the split (such as a side bar) instead.
+k("n", "<leader>tc", function()
+  if #vim.api.nvim_list_tabpages() > 1 then return vim.cmd("tabclose") end
+  local splits = vim.tbl_filter(function(win)
+    return vim.api.nvim_win_get_config(win).relative == ""
+  end, vim.api.nvim_tabpage_list_wins(0))
+  if #splits > 1 then return vim.cmd("close") end
+  vim.notify("Last tab and window: nothing to close", vim.log.levels.INFO)
+end, { desc = "Close tab (or split on the last tab)" })
+k("n", "<leader>to", "<cmd>tabonly<cr>",  { desc = "Close other tabs" })
+
 k("n", "]q", "<cmd>cnext<CR>zz", { desc = "Next quickfix" })
 k("n", "[q", "<cmd>cprev<CR>zz", { desc = "Prev quickfix" })
 k("n", "]Q", "<cmd>clast<CR>zz", { desc = "Last quickfix" })

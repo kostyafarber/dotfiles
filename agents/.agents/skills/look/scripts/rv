@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # rv: read and write the review open in the user's nvim (review.nvim + lua/review_ext), the way
 # `hunk session comment …` drives a live Hunk window. Talks to the nvim whose Rex-tab socket
-# (/tmp/rex-nvim-$UID/<window>.sock) has review_ext loaded and a cwd inside the target repo.
+# (/tmp/rex-nvim-$UID/<window>.sock), or default socket, has review_ext loaded and a tab inside
+# the target repo.
 #
 #   rv [--repo DIR] list                                  all comments and replies, as JSON
 #   rv [--repo DIR] add FILE LINE[-END] [--type T] [--old] [--focus] TEXT
@@ -21,16 +22,21 @@ shift
 
 die() { echo "rv: $*" >&2; exit 1; }
 
-# The socket of an nvim with review_ext loaded whose cwd is inside $root.
+# The socket of an nvim with review_ext loaded with a tab inside $root: Rex-tab sockets first,
+# then nvim's own default sockets ($TMPDIR/nvim.$USER/*/nvim.*), which every nvim has. Each
+# tab's directory counts, since a review can run in a tab with its own (:tcd).
 find_socket() {
-	local probe='luaeval("(package.loaded.review_ext and 1 or 0) .. \"\t\" .. vim.fn.getcwd()")'
-	for sock in /tmp/rex-nvim-"$(id -u)"/*.sock; do
+	local probe='luaeval("(package.loaded.review_ext and 1 or 0) .. \"\t\" .. table.concat(vim.tbl_map(function(t) return vim.fn.getcwd(-1, vim.api.nvim_tabpage_get_number(t)) end, vim.api.nvim_list_tabpages()), \"\t\")")'
+	local tmp=${TMPDIR:-/tmp}
+	for sock in /tmp/rex-nvim-"$(id -u)"/*.sock "${tmp%/}"/nvim."$USER"/*/nvim.*; do
 		[[ -S "$sock" ]] || continue
 		local out loaded cwd
 		out=$(nvim --headless --server "$sock" --remote-expr "$probe" </dev/null 2>/dev/null) || continue
-		loaded=${out%%$'\t'*} cwd=${out#*$'\t'}
+		loaded=${out%%$'\t'*}
 		[[ "$loaded" == 1 ]] || continue
-		[[ "$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" == "$root" ]] && { echo "$sock"; return; }
+		while IFS= read -r cwd; do
+			[[ "$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" == "$root" ]] && { echo "$sock"; return; }
+		done < <(tr '\t' '\n' <<<"${out#*$'\t'}")
 	done
 	return 1
 }

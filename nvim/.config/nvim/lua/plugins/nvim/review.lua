@@ -26,6 +26,16 @@ return {
             { "<leader>vv", "<cmd>Review<cr>", desc = "Review: working tree" },
             { "<leader>vb", "<cmd>Review branch<cr>", desc = "Review: a branch against its base" },
             { "<leader>vc", "<cmd>Review commits<cr>", desc = "Review: pick commits" },
+            -- Open PRs; <cr> reviews the PR here, in the repo's one review checkout (review_ext.pr).
+            {
+                "<leader>vp",
+                function()
+                    local root = vim.fn.system({ "git", "worktree", "list", "--porcelain" }):match("^worktree ([^\n]+)")
+                    if not root then return vim.notify("not in a git repository", vim.log.levels.WARN) end
+                    require("review_ext.pr").pick(root)
+                end,
+                desc = "Review: pick a pull request",
+            },
             { "<leader>vn", ":Review note<cr>", mode = { "n", "v" }, desc = "Review: note here" },
             { "<leader>ve", "<cmd>Review edit<cr>", desc = "Review: edit comment" },
             { "<leader>vd", "<cmd>Review delete<cr>", desc = "Review: delete comment" },
@@ -47,10 +57,26 @@ return {
             { "<leader>ce", function() require("review.comments").edit_at_cursor() end, desc = "Edit the comment here" },
             { "<leader>cd", function() require("review.comments").delete_at_cursor() end, desc = "Delete the comment here" },
             { "<leader>cv", function() require("review_ext").toggle_viewed() end, desc = "Mark file viewed, go to next" },
+            -- In the review's file panel: select rows with V, then mark them all viewed (or unmark).
+            {
+                "<leader>cv",
+                function()
+                    local first, last = vim.fn.line("v"), vim.fn.line(".")
+                    vim.cmd("normal! \27")
+                    require("review_ext").toggle_viewed_rows(first, last)
+                end,
+                mode = "x",
+                desc = "Mark selected files viewed",
+            },
             {
                 "<leader>cx",
                 function() require("review_ext").toggle_resolved_at_cursor() end,
                 desc = "Resolve / reopen the comment here",
+            },
+            {
+                "<leader>cR",
+                function() require("review_ext").toggle_show_resolved() end,
+                desc = "Show / hide resolved comments",
             },
         },
         opts = {

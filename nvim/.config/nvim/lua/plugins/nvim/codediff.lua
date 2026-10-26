@@ -26,6 +26,7 @@ local function apply(tabpage)
         -- absolute numbers: relative ones are meaningless across two aligned panes
         vim.wo[win].relativenumber = false
         vim.wo[win].number = true
+        vim.wo[win].signcolumn = "yes" -- room for the +/- gutter signs
         local buf = vim.api.nvim_win_get_buf(win)
         -- snacks smooth scrolling animates each pane separately and breaks scrollbind
         vim.b[buf].snacks_scroll = false
@@ -66,8 +67,20 @@ return {
     },
     -- inline: one column like a GitHub PR, the new side being the editable file. t flips it.
     -- cycle_hunks_across_files: ]c past a file's last change goes on to the next file.
-    opts = { diff = { layout = "inline", cycle_hunks_across_files = true } },
+    -- gutter_signs: GitHub's +/- column, with changed line numbers tinted to match.
+    opts = {
+        diff = {
+            layout = "inline",
+            cycle_hunks_across_files = true,
+            gutter_signs = { insert_text = "+", delete_text = "-", highlight_numbers = true },
+        },
+    },
     config = function(_, opts)
+        -- GitHub's diff colours: a soft tint on changed lines, a stronger one on the changed words.
+        local github = vim.o.background == "dark"
+            and { line_insert = "#12261e", line_delete = "#25171c", char_insert = "#1f572d", char_delete = "#6b2b2e" }
+            or { line_insert = "#e6ffec", line_delete = "#ffebe9", char_insert = "#abf2bc", char_delete = "#ffcecb" }
+        opts.highlights = vim.tbl_extend("force", opts.highlights or {}, github)
         require("codediff").setup(opts)
         local group = vim.api.nvim_create_augroup("codediff-tidy", { clear = true })
         vim.api.nvim_create_autocmd("User", {
