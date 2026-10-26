@@ -27,3 +27,6 @@ result
 
 # Python bytecode
 __pycache__/
+
+# Links into work/, made by work/install.sh
+pi/.pi/agent/extensions/work-*

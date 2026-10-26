@@ -32,17 +32,6 @@
           }
         ]
       }
-    ],
-    "SubagentStart": [
-      {
-        "matcher": "tldraw-offline",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "f=\"$HOME/skills/tldraw-offline/inject-server-context.mjs\"; [ -f \"$f\" ] && node \"$f\" SubagentStart || true"
-          }
-        ]
-      }
     ]
   },
   "extraKnownMarketplaces": {
