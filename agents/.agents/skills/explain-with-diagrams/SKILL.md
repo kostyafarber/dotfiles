@@ -77,7 +77,9 @@ answer. A wrong diagram is worse than none.
 When the answer is about code (a fix, a change you are about to make, an API), show the code with
 `show_code` instead of describing it. About to write "the fix is in X:42"? Show that hunk. Proposing
 an interface? Show its signatures and one call site as two blocks. Before/after for a change; only
-the hunk that matters, never whole files. Past four blocks, point to the nvim review (`/look`).
+the hunk that matters, never whole files. Name code that is already on disk instead of pasting it,
+so the call is short and fast: `{path, lines: "120-160"}` for a range, `{path, against: "HEAD"}` for
+the hunks a file changed. Paste only code that is not in a file yet, such as a proposed interface. Past four blocks, point to the nvim review (`/look`).
 
 ## Don't draw
 

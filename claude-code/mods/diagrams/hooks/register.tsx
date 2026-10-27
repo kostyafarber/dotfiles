@@ -88,8 +88,10 @@ const sourceOf = (input: unknown) =>
 const DIAGRAM = 'mcp__diagrams__show_diagram'
 const CODE = 'mcp__diagrams__show_code'
 
+type Picture = { kind: 'image'; png: string; base64?: string; columns: number; rows: number }
 type Drawn =
-  | { kind: 'image'; png: string; base64?: string; columns: number; rows: number }
+  | Picture
+  | { kind: 'images'; images: Picture[]; hidden: number }
   | { kind: 'text'; runs: { text: string; role: string }[][] }
   | { kind: 'code'; frame: Frame; blocks: CodeBlock[]; hidden: number }
 // One delineated block of code: a header line (path · note), then a snippet, a unified diff, or a
@@ -110,6 +112,8 @@ type SideRow = [string | undefined, string | undefined]
 // between the two sides.
 type Frame = 'rule' | 'box' | 'rule-split'
 const MAX_BLOCKS = 4
+// An image grows down, not across, so it holds a few more blocks before it gets too tall to read.
+const MAX_IMAGE_BLOCKS = 6
 const drawn = new Map<string, Drawn>()
 
 const field = (e: unknown, key: string) => {
@@ -123,6 +127,37 @@ async function themeMode($: { config: { list: () => Promise<readonly { key: stri
   const theme = (await $.config.list()).find(row => row.key === 'theme')?.value
   if (typeof theme !== 'string') return undefined
   return theme.includes('dark') ? 'dark' : theme.includes('light') ? 'light' : undefined
+}
+
+type Host = {
+  process: { run: (argv: string[], options?: { stdin?: string; timeoutMs?: number; env?: Record<string, string> }) => Promise<{ exitCode: number; stdout: string; stderr: string }> }
+  fs: { read: (path: string, options: { as: 'bytes' }) => Promise<{ base64: string }> }
+}
+
+// Where a render writes its PNG: one file per tool call, in a folder looked up once.
+let cacheDir: string | undefined
+async function pngPath($: Host, id: string) {
+  cacheDir ??= (await $.process.run(['/bin/sh', '-c', 'mkdir -p "$HOME/.cache/diagrams" && echo "$HOME/.cache/diagrams"'])).stdout.trim()
+  return `${cacheDir}/${id}.png`
+}
+
+// The transcript's width in cells, as the last render hook saw it; code images are drawn this wide.
+let terminalColumns = 140
+
+// A rendered PNG as the inline image a transcript row draws. Chrome renders at 2x. Drawn at one
+// cell per 8 CSS px across (about the page's own size) and two cells' height per cell's width, so
+// it keeps its shape; past the row cap the width shrinks with it, never the shape.
+async function imageOf($: Host, rendered: { png: string; width: number; height: number }, maxRows: number, maxColumns = 140): Promise<Picture> {
+  let columns = Math.min(maxColumns, Math.max(10, Math.ceil(rendered.width / 2 / 8)))
+  let rows = Math.ceil((columns * rendered.height) / rendered.width / 2)
+  if (rows > maxRows) {
+    columns = Math.max(10, Math.floor((columns * maxRows) / rows))
+    rows = maxRows
+  }
+  // The bytes go with the drawing, so a row scrolled away and back can be drawn again; a file
+  // name is read once by the terminal. Over the 2 MiB limit, the file name it is.
+  const { base64 } = await $.fs.read(rendered.png, { as: 'bytes' })
+  return { kind: 'image', png: rendered.png, base64: base64.length < 2_700_000 ? base64 : undefined, columns, rows: Math.max(3, rows) }
 }
 
 // A unified diff as aligned side-by-side rows. Context lines sit on both sides; within a run of
@@ -201,14 +236,17 @@ export const register: Register = on => {
     await $.tool.register({
       name: 'show_code',
       description:
-        'Show the user code inline in the chat as real terminal text: a snippet, or a before/after change as a coloured diff. ' +
+        'Show the user code inline in the chat: a snippet, or a before/after change as a coloured diff. ' +
+        '`as`: "image" (default; a syntax-highlighted picture, Rust run through rustfmt, before and after side by side) or "text" (terminal text). ' +
         'Use it before making a change, so the user sees what it will look like. Pass `code` for a snippet, or `before` and `after` ' +
         'for a change (side by side, lines aligned, when both are short; unified otherwise; `layout` forces one). For several blocks pass `changes`: ' +
-        '[{path, note, before, after} or {path, note, code}], each its own framed block; past four the rest are counted and the user ' +
+        '[{path, note, before, after} or {path, note, code}], each its own framed block; past six (four as text) the rest are counted and the user ' +
         'is pointed to the nvim review. Show the code instead of describing it: when about to say "the fix is in X:42", show that hunk. ' +
         'For an API or interface, show the signatures (types, function signatures, props; no bodies) and one call site as two blocks. ' +
         '`path` is shown in the block header and picks the highlighter; `language` ' +
-        'overrides it; `title` adds a short note; `startLine` numbers a snippet. Show only the hunk that matters, not whole files.',
+        'overrides it; `title` adds a short note; `startLine` numbers a snippet. Show only the hunk that matters, not whole files. ' +
+        'Code that is already on disk is named, not pasted, so the call stays short: {path, lines: "120-160"} shows that range, and ' +
+        '{path, against: "HEAD"} shows each hunk of the working copy that differs from that revision. Paste only code that is not in a file yet.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -227,14 +265,18 @@ export const register: Register = on => {
               properties: {
                 path: { type: 'string' },
                 note: { type: 'string' },
+                caption: { type: 'string', description: 'A note drawn under the code instead of in the header; `backticks` mark code.' },
                 before: { type: 'string' },
                 after: { type: 'string' },
                 code: { type: 'string' },
                 startLine: { type: 'number' },
+                lines: { type: 'string', description: 'Show this range of `path` from disk, e.g. "120-160", instead of pasting it.' },
+                against: { type: 'string', description: 'Show each hunk where `path` differs from this git revision (e.g. "HEAD", "origin/main"), instead of pasting before/after.' },
               },
             },
           },
           frame: { type: 'string', enum: ['rule', 'box', 'rule-split'] },
+          as: { type: 'string', enum: ['image', 'text'] },
         },
       },
       isDeferred: false,
@@ -247,8 +289,7 @@ export const register: Register = on => {
     if (mermaid === undefined) return { deny: 'show_diagram needs a `mermaid` string.' }
     const as = field(e, 'as') === 'text' ? 'text' : 'image'
     const id = e.tool_use_id ?? String(Date.now())
-    const cache = await $.process.run(['/bin/sh', '-c', 'mkdir -p "$HOME/.cache/diagrams" && echo "$HOME/.cache/diagrams"'])
-    const png = `${cache.stdout.trim()}/${id}.png`
+    const png = await pngPath($, id)
     const argv = ['/usr/bin/env', 'node', `${$.plugin.root}/render/mermaid.mjs`, as, ...(as === 'image' ? [png] : [])]
     const mode = await themeMode($)
     const ran = await $.process.run(argv, { stdin: mermaid, timeoutMs: 60_000, env: mode ? { CTREE_MODE: mode } : {} })
@@ -259,20 +300,7 @@ export const register: Register = on => {
       const text = rendered.runs.map((row: { text: string }[]) => row.map(r => r.text).join('')).join('\n')
       return { result: `Shown to the user:\n${text}` }
     }
-    // Chrome renders at 2x. Drawn at one cell per 8 CSS px across (about the page's own size) and
-    // two cells' height per cell's width, so it keeps its shape; past the row cap the width
-    // shrinks with it, never the shape.
-    const maxRows = 90
-    let columns = Math.min(140, Math.max(10, Math.ceil(rendered.width / 2 / 8)))
-    let rows = Math.ceil((columns * rendered.height) / rendered.width / 2)
-    if (rows > maxRows) {
-      columns = Math.max(10, Math.floor((columns * maxRows) / rows))
-      rows = maxRows
-    }
-    // The bytes go with the drawing, so a row scrolled away and back can be drawn again; a file
-    // name is read once by the terminal. Over the 2 MiB limit, the file name it is.
-    const { base64 } = await $.fs.read(rendered.png, { as: 'bytes' })
-    drawn.set(id, { kind: 'image', png: rendered.png, base64: base64.length < 2_700_000 ? base64 : undefined, columns, rows: Math.max(3, rows) })
+    drawn.set(id, await imageOf($, rendered, 90))
     return { result: `Shown to the user as an image (${rendered.png}, ${mode ?? 'mode from the terminal'}).` }
   }).catch(() => ({ deny: 'show_diagram failed.' }))
 
@@ -282,7 +310,53 @@ export const register: Register = on => {
     const layout = field(e, 'layout') ?? 'auto'
     const frameArg = field(e, 'frame')
     const frame: Frame = frameArg === 'rule' || frameArg === 'rule-split' ? frameArg : 'box'
-    type Change = { path?: string; note?: string; before?: string; after?: string; code?: string; startLine?: number }
+    type Change = {
+      path?: string
+      note?: string
+      caption?: string
+      before?: string
+      after?: string
+      code?: string
+      startLine?: number
+      beforeLine?: number
+      afterLine?: number
+      lines?: string
+      against?: string
+      format?: boolean
+    }
+    // A change that names code on disk instead of carrying it, so the call stays short: `lines`
+    // ("120-160") is that range of `path`; `against` (a git revision) is each hunk where `path`'s
+    // working copy differs from it. Code read from disk is shown as it is, not reformatted.
+    const fromDisk = async (change: Change): Promise<Change[]> => {
+      const path = change.path ?? ''
+      if (change.lines !== undefined) {
+        const [first = 1, last = first] = change.lines.split('-').map(Number)
+        const ran = await $.process.run(['sed', '-n', `${first},${last}p`, path])
+        if (ran.exitCode !== 0) throw new Error(`show_code could not read ${path}: ${ran.stderr}`)
+        return [{ path: `${path}:${first}`, note: change.note, caption: change.caption, code: ran.stdout, startLine: first, format: false }]
+      }
+      if (change.against !== undefined) {
+        // Run from the file's own folder, so a file in another repository diffs against its own history.
+        const slash = path.lastIndexOf('/')
+        const folder = slash < 0 ? '.' : path.slice(0, slash) || '/'
+        const ran = await $.process.run(['git', 'diff', '--no-color', '-U3', change.against, '--', path.slice(slash + 1)], { cwd: folder })
+        if (ran.exitCode !== 0) throw new Error(`show_code could not diff ${path}: ${ran.stderr}`)
+        const hunks: Change[] = []
+        for (const line of ran.stdout.split('\n')) {
+          const header = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+          const hunk = hunks.at(-1)
+          if (header) {
+            hunks.push({ path: `${path}:${header[2]}`, note: change.note, caption: change.caption, before: '', after: '', beforeLine: Number(header[1]), afterLine: Number(header[2]), format: false })
+          } else if (hunk && /^[ +-]/.test(line) && !/^(\+\+\+|---) /.test(line)) {
+            const text = `${line.slice(1)}\n`
+            if (line[0] !== '+') hunk.before += text
+            if (line[0] !== '-') hunk.after += text
+          }
+        }
+        return hunks
+      }
+      return [change]
+    }
     const diffBlock = async (change: Change): Promise<CodeBlock> => {
       if (change.before === undefined || change.after === undefined) {
         return { path: change.path, note: change.note, language, source: change.code ?? '', diff: false, startLine: change.startLine }
@@ -298,12 +372,38 @@ export const register: Register = on => {
       ? list.filter((c): c is Change => {
           if (typeof c !== 'object' || c === null) return false
           const item = c as Change
-          return typeof item.code === 'string' || (typeof item.before === 'string' && typeof item.after === 'string')
+          const named = typeof item.path === 'string' && (typeof item.lines === 'string' || typeof item.against === 'string')
+          return named || typeof item.code === 'string' || (typeof item.before === 'string' && typeof item.after === 'string')
         })
       : []
     const before = field(e, 'before')
     const after = field(e, 'after')
     if (before !== undefined && after !== undefined) changes.unshift({ path: field(e, 'path'), note: field(e, 'title'), before, after })
+    const snippet = field(e, 'code')
+    if (field(e, 'as') !== 'text') {
+      const read = (await Promise.all(changes.map(fromDisk))).flat()
+      const blocks: Change[] = read.length ? read : snippet !== undefined ? [{ path: field(e, 'path'), note: field(e, 'title'), code: snippet }] : []
+      if (!blocks.length) return { deny: 'show_code needs `code`, `before` and `after`, or `changes`.' }
+      const shown = blocks.slice(0, MAX_IMAGE_BLOCKS).map(block => ({ ...block, language }))
+      const png = await pngPath($, id)
+      const mode = await themeMode($)
+      const imageColumns = Math.max(60, terminalColumns - 4)
+      const ran = await $.process.run(['/usr/bin/env', 'node', `${$.plugin.root}/render/code.mjs`, png], {
+        // A few cells short of the transcript, for its margin.
+        stdin: JSON.stringify({ blocks: shown, layout, columns: imageColumns }),
+        timeoutMs: 60_000,
+        env: mode ? { CTREE_MODE: mode } : {},
+      })
+      if (ran.exitCode !== 0) return { deny: `show_code could not render it: ${ran.stderr.slice(0, 2000)}` }
+      // One image per block: each stays under the terminal's image size limit and at full size.
+      const { images } = JSON.parse(ran.stdout) as { images: { png: string; width: number; height: number }[] }
+      const hidden = blocks.length - shown.length
+      drawn.set(id, { kind: 'images', images: await Promise.all(images.map(image => imageOf($, image, 120, imageColumns))), hidden })
+      const more = hidden ? ` ${hidden} more not shown; point the user to the nvim review (/look).` : ''
+      // Code read from disk is not echoed back: the caller named it and can read it there.
+      const text = shown.map(b => (b.format === false ? `${b.path ?? ''}` : `${b.path ?? ''}\n${b.code ?? `--- before\n${b.before}\n+++ after\n${b.after}`}`)).join('\n\n')
+      return { result: `Shown to the user as an image of ${shown.length} block(s).${more}\n${text}` }
+    }
     if (changes.length) {
       const blocks = await Promise.all(changes.slice(0, MAX_BLOCKS).map(diffBlock))
       drawn.set(id, { kind: 'code', frame, blocks, hidden: Math.max(0, changes.length - MAX_BLOCKS) })
@@ -322,6 +422,7 @@ export const register: Register = on => {
   }).catch(() => ({ deny: 'show_code failed.' }))
 
   on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
+    if (e.viewport?.columns) terminalColumns = e.viewport.columns
     if (e.props.tool !== DIAGRAM && e.props.tool !== CODE) return next(e)
     const d = drawn.get(e.props.tool_use_id)
     if (d === undefined || e.props.isErrored) return next(e)
@@ -396,10 +497,17 @@ export const register: Register = on => {
         </Box>
       )
     }
-    if (!Image) return <Text dimColor>[diagram: {d.png}]</Text>
+    const pictures = d.kind === 'images' ? d.images : [d]
+    const hidden = d.kind === 'images' ? d.hidden : 0
+    if (!Image) return <Text dimColor>[image: {pictures.map(p => p.png).join(', ')}]</Text>
     return (
-      <Box marginY={1}>
-        <Image source={d.base64 ? { png: d.base64 } : { file: d.png, format: 'png' }} columns={d.columns} rows={d.rows} alt={`diagram: ${d.png}`} />
+      <Box flexDirection="column" marginY={1} gap={1}>
+        {pictures.map(p => (
+          <Image source={p.base64 ? { png: p.base64 } : { file: p.png, format: 'png' }} columns={p.columns} rows={p.rows} alt={`image: ${p.png}`} />
+        ))}
+        {hidden ? (
+          <Text dimColor>{`+${hidden} more block${hidden === 1 ? '' : 's'} not shown: open the review in nvim (/look) to see them all`}</Text>
+        ) : null}
       </Box>
     )
   })

@@ -1,11 +1,11 @@
 // Mermaid on stdin -> JSON on stdout, for the diagrams mod's show_diagram.
 //   node mermaid.mjs text           -> { runs: [[{ text, role }]] }   (beautiful-mermaid)
 //   node mermaid.mjs image <out.png> -> { png, width, height }        (pele, laid out and shot in Chrome; look in style.css)
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawnSync } from 'node:child_process'
 import { iconsFor } from './icons.mjs'
+import { launchChrome, terminalTheme } from './browser.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const modules = join(here, 'node_modules')
@@ -34,10 +34,7 @@ if (mode === 'text') {
   process.stdout.write(JSON.stringify({ runs }))
 } else {
   const { mode, bg, fg } = terminalTheme()
-  const { chromium } = await import(join(modules, 'playwright-core/index.mjs'))
-  const app = readdirSync('/Applications', { withFileTypes: true }).find((e) => e.isDirectory() && e.name.endsWith('Chrome.app'))
-  const executablePath = app ? join('/Applications', app.name, 'Contents/MacOS/Google Chrome') : undefined
-  const browser = await chromium.launch(executablePath ? { executablePath } : { channel: 'chrome' })
+  const browser = await launchChrome()
   const page = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: 1600, height: 1200 } })
   await page.emulateMedia({ colorScheme: mode })
   const term = bg ? `:root{--term-bg:${bg};--term-fg:${fg}}` : ''
@@ -86,24 +83,4 @@ if (mode === 'text') {
   await el.screenshot({ path: out })
   await browser.close()
   process.stdout.write(JSON.stringify({ png: out, width: Math.round(box.width * 2), height: Math.round(box.height * 2) }))
-}
-
-// Light or dark, and the background and text colours, of the terminal the image will sit in:
-// Rex's own appearance and active theme (as nvim's core/rex_theme.lua reads them), else macOS's
-// appearance with style.css's fallbacks. CTREE_MODE=light|dark overrides the mode.
-function terminalTheme() {
-  const read = (...args) => {
-    const res = spawnSync('defaults', ['read', ...args], { encoding: 'utf8' })
-    return res.status === 0 ? res.stdout.trim() : undefined
-  }
-  const appearance = read('com.superlogical.rex', 'Workspace.appearance')
-  const mode = process.env.CTREE_MODE
-    ?? (appearance === 'light' || appearance === 'dark' ? appearance : read('-g', 'AppleInterfaceStyle') === 'Dark' ? 'dark' : 'light')
-  const id = read('com.superlogical.rex', mode === 'dark' ? 'Workspace.darkThemeID' : 'Workspace.lightThemeID')
-  try {
-    const themes = JSON.parse(readFileSync('/Applications/Rex Beta.app/Contents/Resources/SuperUI_SuperDesignTokens.bundle/Contents/Resources/themes.json', 'utf8'))
-    const theme = themes.find((t) => t.id === id)
-    if (theme) return { mode, bg: theme.source.background, fg: theme.source.foreground }
-  } catch {}
-  return { mode }
 }

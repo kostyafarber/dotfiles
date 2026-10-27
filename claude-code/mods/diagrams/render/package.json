@@ -5,7 +5,10 @@
   "description": "Renders show_diagram and show_code for the diagrams mod",
   "dependencies": {
     "@carbon/icons": "^11.91.0",
+    "@pierre/highlights": "0.3.0",
+    "@resvg/resvg-js": "^2.6.2",
     "beautiful-mermaid": "^1.1.3",
+    "diff": "^9.0.0",
     "pele": "^1.10.0",
     "playwright-core": "^1.47.0"
   }
