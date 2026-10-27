@@ -1,6 +1,6 @@
 ---
 name: explain-with-diagrams
-description: Answer with a picture first. Use when the user asks how something works, how parts relate, what calls what, where code runs, why something broke, says "map it out", "draw it", "step back", "I don't get it", or re-asks a question; and whenever code is the answer — before making a change ("what will it look like", "show me the change", "what's the API", "how would the code look") or when pointing at a fix. Draws diagrams with the diagrams mod's show_diagram (Mermaid, card look), file trees with show_tree, and code (snippets, before/after, signatures + call site) with show_code. Not for questions a short table answers better.
+description: Answer with a picture first. Use when the user asks how something works, how parts relate, what calls what, where code runs, why something broke, says "map it out", "draw it", "step back", "I don't get it", or re-asks a question. Draws diagrams with the diagrams mod's show_diagram (Mermaid, card look) and file trees with show_tree. When the answer is code, use the show-code skill instead. Not for questions a short table answers better.
 ---
 
 # Explain with diagrams
@@ -72,14 +72,10 @@ See [examples.md](examples.md) for diagrams the user liked: match their density 
 Check every box and arrow against the code or the docs. If a link is inferred, say so in the one-line
 answer. A wrong diagram is worse than none.
 
-## Code: show it, don't describe it
+## Code
 
-When the answer is about code (a fix, a change you are about to make, an API), show the code with
-`show_code` instead of describing it. About to write "the fix is in X:42"? Show that hunk. Proposing
-an interface? Show its signatures and one call site as two blocks. Before/after for a change; only
-the hunk that matters, never whole files. Name code that is already on disk instead of pasting it,
-so the call is short and fast: `{path, lines: "120-160"}` for a range, `{path, against: "HEAD"}` for
-the hunks a file changed. Paste only code that is not in a file yet, such as a proposed interface. Past four blocks, point to the nvim review (`/look`).
+When the answer is code (a change, a fix, an API, a diff), show it with `show_code` as the
+`show-code` skill says, not a diagram.
 
 ## Don't draw
 

@@ -155,6 +155,8 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/ci-wait";
   home.file.".claude/skills/explain-with-diagrams".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/explain-with-diagrams";
+  home.file.".claude/skills/show-code".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/show-code";
   home.file.".claude/skills/explain-flow".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/agents/.agents/skills/explain-flow";
   home.file.".claude/skills/look".source =
