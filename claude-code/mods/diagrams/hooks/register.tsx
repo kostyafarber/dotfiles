@@ -220,7 +220,7 @@ export const register: Register = on => {
     if (!Image) return <Text dimColor>[diagram: {d.png}]</Text>
     return (
       <Box marginY={1}>
-        <Image source={d.base64 ? { png: d.base64 } : { file: d.png, format: 'png' }} columns={d.columns} rows={d.rows} alt={`diagram: ${d.png}`} />
+        <Image source={d.base64 ? { png: d.base64 } : { file: d.png, format: 'png' }} columns={Math.min(255, Math.max(1, Math.round(d.columns)))} rows={Math.min(255, Math.max(1, Math.round(d.rows)))} alt={`diagram: ${d.png}`} />
       </Box>
     )
   })

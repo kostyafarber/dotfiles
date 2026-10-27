@@ -62,6 +62,11 @@ async function pngPath($: Host, id: string) {
 let terminalColumns = 140
 let terminalRows = 50
 
+// An Image's size in cells is a whole number from 1 to 255; a wide terminal and a 4096 px card
+// otherwise ask for 256 columns, and the row draws nothing.
+const MAX_CELLS = 255
+const cells = (n: number) => Math.min(MAX_CELLS, Math.max(1, Math.round(n)))
+
 // A rendered PNG as the inline image a transcript row draws. Cards render at 2x. Drawn at one
 // cell per 8 CSS px across (about the page's own size) and two cells' height per cell's width, so
 // it keeps its shape; past the row cap the width shrinks with it, never the shape.
@@ -132,10 +137,17 @@ async function remember($: EngineInterface, id: string, kept: Kept) {
   await $.store.set('calls', next.slice(-KEPT_CALLS))
 }
 
-async function recall($: EngineInterface, id: string): Promise<Drawn | undefined> {
-  const kept = (await $.store.get(`call:${id}`)) as Kept | undefined
-  if (!kept?.pictures.length) return undefined
-  return { kind: 'images', images: kept.pictures.map(picture => ({ kind: 'image', ...picture })), hidden: kept.hidden }
+// Loads every kept call into `drawn` once at session start, so the render hooks stay synchronous
+// (a draw that waits on the store can miss its row), then redraws the rows that were already drawn.
+async function recallAll($: EngineInterface) {
+  const order = ((await $.store.get('calls')) as string[] | undefined) ?? []
+  for (const id of order) {
+    if (drawn.has(id)) continue
+    const kept = (await $.store.get(`call:${id}`)) as Kept | undefined
+    if (!kept?.pictures.length) continue
+    drawn.set(id, { kind: 'images', images: kept.pictures.map(picture => ({ kind: 'image', ...picture })), hidden: kept.hidden })
+  }
+  $.ui.invalidate('ui.render')
 }
 
 export const register: Register = on => {
@@ -189,6 +201,7 @@ export const register: Register = on => {
       },
       isDeferred: false,
     })
+    void recallAll($).catch(() => undefined)
     return next(e)
   })
 
@@ -216,19 +229,23 @@ export const register: Register = on => {
     // A change that names code on disk instead of carrying it, so the call stays short: `lines`
     // ("120-160") is that range of `path`; `against` (a git revision) is each hunk where `path`'s
     // working copy differs from it. Code read from disk is shown as it is, not reformatted.
+    // A relative path names a file under the project root, not wherever the shell last `cd`-ed.
+    const root = await $.session.root()
+    const onDisk = (path: string) => (path.startsWith('/') ? path : `${root}/${path}`)
     const fromDisk = async (change: Change): Promise<Change[]> => {
       const path = change.path ?? ''
       if (change.lines !== undefined) {
         const [first = 1, last = first] = change.lines.split('-').map(Number)
-        const ran = await $.process.run(['sed', '-n', `${first},${last}p`, path])
+        const ran = await $.process.run(['sed', '-n', `${first},${last}p`, onDisk(path)])
         if (ran.exitCode !== 0) throw new Error(`show_code could not read ${path}: ${ran.stderr}`)
         return [{ path: `${path}:${first}`, note: change.note, caption: change.caption, focus: change.focus, code: ran.stdout, startLine: first, format: false }]
       }
       if (change.against !== undefined) {
         // Run from the file's own folder, so a file in another repository diffs against its own history.
-        const slash = path.lastIndexOf('/')
-        const folder = slash < 0 ? '.' : path.slice(0, slash) || '/'
-        const ran = await $.process.run(['git', 'diff', '--no-color', '-U3', change.against, '--', path.slice(slash + 1)], { cwd: folder })
+        const full = onDisk(path)
+        const slash = full.lastIndexOf('/')
+        const folder = full.slice(0, slash) || '/'
+        const ran = await $.process.run(['git', 'diff', '--no-color', '-U3', change.against, '--', full.slice(slash + 1)], { cwd: folder })
         if (ran.exitCode !== 0) throw new Error(`show_code could not diff ${path}: ${ran.stderr}`)
         const hunks: Change[] = []
         for (const line of ran.stdout.split('\n')) {
@@ -276,7 +293,8 @@ export const register: Register = on => {
       const shown = blocks.slice(0, MAX_IMAGE_BLOCKS).map(block => ({ ...block, language }))
       const png = await pngPath($, id)
       const mode = await themeMode($)
-      const imageColumns = Math.max(60, terminalColumns - 4)
+      // Rendered for the width it is drawn at, so text keeps the terminal's size.
+      const imageColumns = Math.min(MAX_CELLS, Math.max(60, terminalColumns - 4))
       const ran = await $.process.run(['/usr/bin/env', 'node', `${$.plugin.root}/render/code.mjs`, png], {
         // A few cells short of the transcript, for its margin.
         stdin: JSON.stringify({ blocks: shown, layout, columns: imageColumns }),
@@ -291,6 +309,8 @@ export const register: Register = on => {
       const hidden = blocks.length - shown.length
       const pictures = await Promise.all(images.map(image => imageOf($, image, Math.max(10, terminalRows - 4), imageColumns)))
       drawn.set(id, { kind: 'images', images: pictures, hidden })
+      // The row may have been drawn while the card rendered; draw it again with the card.
+      $.ui.invalidate('ui.render')
       await remember($, id, { pictures: pictures.map(({ png, columns, rows }) => ({ png, columns, rows })), hidden })
       const more = hidden ? ` ${hidden} more not shown; point the user to the nvim review (/look).` : ''
       return { result: `Shown to the user as an image of ${shown.length} block(s).${more}\n${text}` }
@@ -310,13 +330,13 @@ export const register: Register = on => {
       blocks: [{ path: field(e, 'path'), note: field(e, 'title'), language, source: code, diff: false, startLine: typeof startLine === 'number' ? startLine : undefined }],
     })
     return { result: 'Shown to the user.' }
-  }).catch(() => ({ deny: 'show_code failed.' }))
+  }).catch(($, e, next) => ({ deny: `show_code failed (${next.error.kind}): ${next.error.message ?? 'no message'}` }))
 
-  on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+  on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
     if (e.viewport?.columns) terminalColumns = e.viewport.columns
     if (e.viewport?.rows) terminalRows = e.viewport.rows
     if (e.props.tool !== CODE) return next(e)
-    const d = drawn.get(e.props.tool_use_id) ?? (await recall($, e.props.tool_use_id))
+    const d = drawn.get(e.props.tool_use_id)
     if (d === undefined || e.props.isErrored) return next(e)
     const elements = $.ui.resolve(e)
     const { Box, Text, Code } = elements
@@ -382,7 +402,7 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" marginY={1} gap={1}>
         {pictures.map(p => (
-          <Image source={p.base64 ? { png: p.base64 } : { file: p.png, format: 'png' }} columns={p.columns} rows={p.rows} alt={`image: ${p.png}`} />
+          <Image source={p.base64 ? { png: p.base64 } : { file: p.png, format: 'png' }} columns={cells(p.columns)} rows={cells(p.rows)} alt={`image: ${p.png}`} />
         ))}
         {hidden ? (
           <Text dimColor>{`+${hidden} more block${hidden === 1 ? '' : 's'} not shown: open the review in nvim (/look) to see them all`}</Text>
@@ -391,9 +411,9 @@ export const register: Register = on => {
     )
   })
 
-  on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
+  on('ui.render', { component: 'ToolResult' }, ($, e, next) => {
     if (e.props.tool !== CODE || e.props.isErrored) return next(e)
-    if (!drawn.has(e.props.tool_use_id) && !(await recall($, e.props.tool_use_id))) return next(e)
+    if (!drawn.has(e.props.tool_use_id)) return next(e)
     const { Box } = $.ui.resolve(e)
     return <Box />
   })
