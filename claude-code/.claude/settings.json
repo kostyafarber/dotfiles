@@ -77,5 +77,37 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "auto",
   "editorMode": "vim",
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: Cloudflare R2 (seen in CI secret names: R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_SCREENSHOT_ACCESS_KEY_ID, R2_SCREENSHOT_SECRET_ACCESS_KEY)",
+      "**Repository visibility**: PUBLIC — shift-editor/shift (github.com) is public; any push there is publishing",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: GitHub Actions encrypted secrets (names only, values not accessible): APPLE_APP_SPECIFIC_PASSWORD, APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_TEAM_ID, GITHUB_TOKEN, LINUX_REPOSITORY_GPG_PASSPHRASE, LINUX_REPOSITORY_GPG_PRIVATE_KEY, R2_ACCESS_KEY_ID, R2_SCREENSHOT_ACCESS_KEY_ID, R2_SCREENSHOT_SECRET_ACCESS_KEY, R2_SECRET_ACCESS_KEY, RELEASE_PLEASE_APP_PRIVATE_KEY, SIGNPATH_API_TOKEN",
+      "**Default / protected branches**: main (default); ruleset `Main Merge Queue` active on main — treat main as protected even though no classic branch-protection rule is listed",
+      "**CI/CD deploy targets**: GitHub Actions release/signing pipeline (macOS code signing via Apple credentials, Linux repo signing via GPG, Windows signing via SignPath), Cloudflare R2 for release/screenshot artifact storage",
+      "**Network posture**: None configured — assume ordinary developer machine with open internet",
+      "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine with open internet",
+      "**Source control**: shift-editor/shift (github.com) and its remote `origin` only — public repo, so only this repo's own work belongs in commits/pushes here",
+      "**Trusted internal domains**: shift.graphics, releases.shift.graphics, feeds.shift.graphics, www.shift.graphics, shift-editor.github.io, docs.typesafe.ai, typesafe.ai (project/doc domains seen repeatedly in this project's transcript host list)",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: None configured",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar. Note: `.env`, `.env.test`, and `.envrc` are gitignored/sensitive-looking paths in this repo — never commit or expose their contents",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (font editor desktop app — Shift)",
+      "**Trusted repo**: shift-editor/shift at /Users/kostyafarber/repos/shift (working directory) and its remote `origin` — PUBLIC repo: only this repo's own work is OK to commit/push here; confidential/secret material is never cleared into it regardless of visibility",
+      "**Org-specific CLIs**: None configured — project-local tools observed (rex, pnpm, nix, wrangler) are repo/dev tooling, not org-wide CLIs",
+      "routine under /Users/kostyafarber/repos/shift/ prefix: pnpm, cargo, nix, rustup commands scoped to this repo's build/dev workflow"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude-code/mods/open-files:~/.dotfiles/claude-code/mods/prs:~/.dotfiles/claude-code/mods/diagrams"
+  }
 }
