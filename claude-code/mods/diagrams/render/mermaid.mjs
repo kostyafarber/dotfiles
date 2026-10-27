@@ -1,11 +1,13 @@
 // Mermaid on stdin -> JSON on stdout, for the diagrams mod's show_diagram.
 //   node mermaid.mjs text           -> { runs: [[{ text, role }]] }   (beautiful-mermaid)
-//   node mermaid.mjs image <out.png> -> { png, width, height }        (pele, laid out and shot in Chrome; look in style.css)
+//   node mermaid.mjs image <out.png> -> { png, width, height }        (pele, drawn by resvg in diagram.mjs; Chrome if that
+//                                                                       throws, or with CTREE_RENDER=chrome; look in style.css)
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { iconsFor } from './icons.mjs'
 import { launchChrome, terminalTheme } from './browser.mjs'
+import { drawDiagram } from './diagram.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const modules = join(here, 'node_modules')
@@ -34,6 +36,18 @@ if (mode === 'text') {
   process.stdout.write(JSON.stringify({ runs }))
 } else {
   const { mode, bg, fg } = terminalTheme()
+  let drawn
+  if (process.env.CTREE_RENDER !== 'chrome') {
+    try {
+      drawn = await drawDiagram(source, out, { mode, bg, fg })
+    } catch (error) {
+      process.stderr.write(`diagram.mjs could not draw it, so Chrome does: ${error.message}\n`)
+    }
+  }
+  if (drawn) {
+    process.stdout.write(JSON.stringify(drawn))
+    process.exit(0)
+  }
   const browser = await launchChrome()
   const page = await browser.newPage({ deviceScaleFactor: 2, viewport: { width: 1600, height: 1200 } })
   await page.emulateMedia({ colorScheme: mode })
