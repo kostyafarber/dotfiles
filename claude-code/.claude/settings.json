@@ -1,6 +1,7 @@
 {
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude-code/mods/open-files:~/.dotfiles/claude-code/mods/prs:~/.dotfiles/claude-code/mods/diagrams:~/.dotfiles/claude-code/mods/code"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude-code/mods/open-files:~/.dotfiles/claude-code/mods/prs:~/.dotfiles/claude-code/mods/diagrams:~/.dotfiles/claude-code/mods/code",
+    "CLAUDE_CODE_FORCE_TERMINAL_IMAGES": "1"
   },
   "attribution": {
     "commit": ""
