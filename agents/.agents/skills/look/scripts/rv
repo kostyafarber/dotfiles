@@ -10,6 +10,8 @@
 #   rv [--repo DIR] resolve ID | reopen ID                mark a thread resolved, or open again
 #   rv [--repo DIR] goto ID                               move the user's view to a comment
 #   rv [--repo DIR] rm ID
+#   rv [--repo DIR] files                                 the review's files, with reviewed marks, as JSON
+#   rv [--repo DIR] reviewed FILE... | unreviewed FILE... tick files off in the file panel, or untick
 #
 # FILE is relative to the repo root. T is note|suggestion|issue|praise (default note).
 set -euo pipefail
@@ -85,6 +87,13 @@ resolve | reopen)
 		jq -r 'if .resolved then "resolved \(.id)" else "reopened \(.id)" end'
 	;;
 goto) call "$(jq -cn --arg i "${1:?id}" '{cmd:"goto", id:$i}')" | jq -r '"showing \(.file):\(.line)"' ;;
+files) call '{"cmd":"files"}' ;;
+reviewed | unreviewed)
+	(($#)) || die "usage: rv $cmd FILE..."
+	want=true; [[ $cmd == unreviewed ]] && want=false
+	call "$(jq -cn --argjson r "$want" '{cmd:"reviewed", files:$ARGS.positional, reviewed:$r}' --args "$@")" |
+		jq -r '"\(if .reviewed then "reviewed" else "unreviewed" end) \(.files | length) file(s)"'
+	;;
 rm) call "$(jq -cn --arg i "${1:?id}" '{cmd:"rm", id:$i}')" >/dev/null && echo "removed $1" ;;
 *) die "unknown command $cmd" ;;
 esac

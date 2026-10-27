@@ -37,7 +37,13 @@ rv reply ID "Changed it to …"                   # answer in their thread
 rv resolve ID / rv reopen ID                    # after you've addressed it: reply first, then resolve
 rv goto ID                                      # move their view to it (walking them through)
 rv rm ID
+rv files                                        # the review's files with their reviewed ✓, JSON
+rv reviewed FILE... / rv unreviewed FILE...     # tick files off in their file panel (paths from the repo root)
 ```
+
+- Tick off files they don't need to read one by one (lockfiles, generated code, mechanical
+  renames), so next-file navigation skips them. A mark drops when the file changes. Leave the files that
+  need their eyes unticked.
 
 - `rv list` is the source of truth for threads: the markdown export carries no replies.
 - Notes you add: first line a one-line summary, then the reason. Use them when the reason for a change

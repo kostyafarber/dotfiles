@@ -386,6 +386,27 @@ local function mark_key(explorer, file)
     return ("%s %s %s"):format(old_blob, new_blob, file.path)
 end
 
+-- "✓ reviewed/total" for the review in the current tab, for the statusline. Counted once and
+-- kept until a mark or a file changes: counting hashes every file in the review.
+local progress_cache = {} -- by tabpage
+
+local function forget_progress() progress_cache = {} end
+
+function M.progress()
+    local tab = vim.api.nvim_get_current_tabpage()
+    if progress_cache[tab] then return progress_cache[tab] end
+    local explorer = require("review.hooks").get_explorer(tab)
+    if not (explorer and explorer.data.git_root and explorer.tree) then return "" end
+    local reviewed = require("review.reviewed")
+    local files = require("codediff.ui.explorer.tree").get_all_files(explorer.tree)
+    local done = 0
+    for _, entry in ipairs(files) do
+        if reviewed.is_reviewed(explorer, entry.data) then done = done + 1 end
+    end
+    progress_cache[tab] = ("✓ %d/%d"):format(done, #files)
+    return progress_cache[tab]
+end
+
 local function mark_left_file_viewed(tab)
     local explorer = require("review.hooks").get_explorer(tab)
     if not (explorer and explorer.data.git_root) then return end
@@ -525,9 +546,51 @@ local function goto_comment(c)
     end, 150)
 end
 
+-- The open review's file panel: the current tab's, else the first tab that has one.
+local function review_explorer()
+    local hooks = require("review.hooks")
+    local tabs = vim.list_extend({ vim.api.nvim_get_current_tabpage() }, vim.api.nvim_list_tabpages())
+    for _, tab in ipairs(tabs) do
+        local explorer = hooks.get_explorer(tab)
+        if explorer and explorer.data.git_root then return explorer end
+    end
+    error("no review file panel open", 0)
+end
+
+local function review_files(explorer)
+    return vim.tbl_map(function(entry) return entry.data end,
+        require("codediff.ui.explorer.tree").get_all_files(explorer.tree))
+end
+
 local handlers = {
     list = function()
         return store().get_all()
+    end,
+    files = function()
+        local explorer = review_explorer()
+        local reviewed = require("review.reviewed")
+        return vim.tbl_map(function(file)
+            return { path = file.path, group = file.group, reviewed = reviewed.is_reviewed(explorer, file) }
+        end, review_files(explorer))
+    end,
+    reviewed = function(a)
+        local explorer = review_explorer()
+        local wanted = {}
+        for _, path in ipairs(a.files) do wanted[path] = false end
+        local storage = require("review.storage")
+        local marks = storage.load_reviewed()
+        for _, file in ipairs(review_files(explorer)) do
+            if wanted[file.path] ~= nil then
+                wanted[file.path] = true
+                marks[mark_key(explorer, file)] = a.reviewed ~= false and os.time() or nil
+            end
+        end
+        local missing = vim.tbl_filter(function(path) return not wanted[path] end, a.files)
+        if #missing > 0 then error("not in this review: " .. table.concat(missing, ", "), 0) end
+        storage.save_reviewed(marks)
+        require("review.reviewed").reset()
+        if vim.api.nvim_buf_is_valid(explorer.bufnr) and not explorer.is_hidden then explorer.tree:render() end
+        return { files = a.files, reviewed = a.reviewed ~= false }
     end,
     add = function(a)
         local s = store()
@@ -616,6 +679,18 @@ function M.setup()
         end,
     })
     vim.api.nvim_create_autocmd("TabClosed", { group = group, callback = function() last_file = {} end })
+
+    -- Every way a mark changes ends in review.nvim's reset (its own toggle saves, then redraws;
+    -- review_ext's marks call reset), and an edited file drops its mark.
+    local reviewed = require("review.reviewed")
+    for _, name in ipairs({ "reset", "toggle_current" }) do
+        local inner = reviewed[name]
+        reviewed[name] = function(...)
+            forget_progress()
+            return inner(...)
+        end
+    end
+    vim.api.nvim_create_autocmd({ "BufWritePost", "FocusGained" }, { group = group, callback = forget_progress })
     vim.keymap.set("n", "<localleader>cR", M.reply_at_cursor, { desc = "Review: reply to the comment here" })
 end
 

@@ -26,6 +26,12 @@ local function lsp_name()
     return " " .. table.concat(names, ", ")
 end
 
+-- Files marked reviewed in this tab's review, when there is one.
+local function review_progress()
+    local ok, ext = pcall(require, "review_ext")
+    return ok and ext.progress and ext.progress() or ""
+end
+
 return {
     "nvim-lualine/lualine.nvim",
     dependencies = { "nvim-tree/nvim-web-devicons" },
@@ -41,7 +47,7 @@ return {
             lualine_a = { { "mode", separator = { left = "" }, right_padding = 2 } },
             lualine_b = { { "filename", path = 1 }, "branch" },
             lualine_c = { "%=" },
-            lualine_x = { lsp_name, "diff", "diagnostics" },
+            lualine_x = { review_progress, lsp_name, "diff", "diagnostics" },
             lualine_y = { "filetype", "progress" },
             lualine_z = { { "location", separator = { right = "" }, left_padding = 2 } },
         },
