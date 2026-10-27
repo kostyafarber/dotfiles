@@ -1,0 +1,2 @@
+{"columns": 70, "blocks": [{"path": "long.js", "format": false,
+  "code": "const message = 'a line that is far too long to fit in a card seventy columns wide, so it wraps onto a second row'"}]}

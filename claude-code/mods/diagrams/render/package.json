@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "description": "Renders show_diagram and show_code for the diagrams mod",
+  "scripts": {
+    "test": "node --test test/code.test.mjs"
+  },
   "dependencies": {
     "@carbon/icons": "^11.91.0",
     "@pierre/highlights": "0.3.0",

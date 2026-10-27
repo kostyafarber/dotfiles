@@ -1,0 +1,3 @@
+{"columns": 120, "blocks": [{"path": "render/mermaid.mjs", "note": "an edit: only `readdirSync` is marked", "format": false,
+  "before": "import { readFileSync, readdirSync } from 'node:fs'\nimport { dirname, join } from 'node:path'\nimport { spawnSync } from 'node:child_process'",
+  "after": "import { readFileSync } from 'node:fs'\nimport { dirname, join } from 'node:path'\nimport { launchChrome } from './browser.mjs'"}]}

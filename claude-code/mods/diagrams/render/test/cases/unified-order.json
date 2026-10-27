@@ -1,0 +1,3 @@
+{"columns": 100, "layout": "unified", "blocks": [{"path": "a.ts", "format": false,
+  "before": "const a = 1\nconst b = 2\nconst c = 3\nkeep()",
+  "after": "const total = 6\nkeep()"}]}

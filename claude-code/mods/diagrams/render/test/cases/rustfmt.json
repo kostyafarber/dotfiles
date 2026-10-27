@@ -1,0 +1,2 @@
+{"columns": 100, "blocks": [{"path": "engine.rs", "note": "a fragment `rustfmt` formats inside a function",
+  "code": "let engine = usize::try_from(handle).ok().and_then(|index| engines.get_mut(index)).and_then(Option::as_mut).ok_or_else(|| JsError::new(&format!(\"no engine {handle}\")))?;"}]}

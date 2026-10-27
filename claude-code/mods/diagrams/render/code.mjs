@@ -1,6 +1,7 @@
 // show_code as images, with no browser: { blocks, layout, columns } on stdin -> { images: [{ png, width, height }] },
 // one image per block.
-//   node code.mjs <out.png>   (block n is written to out-n.png)
+//   node code.mjs <out.png>        (block n is written to out-n.png)
+//   node code.mjs <out.svg> svg    (the SVG instead, for tests)
 // Each block is { path?, note?, language?, startLine?, code } or { path?, note?, language?, before, after }.
 // @pierre/highlights colours the code, the `diff` package lines the two sides up, and the cards are
 // laid out as SVG on a monospace grid (code is one, so nothing needs measuring) and drawn by resvg
@@ -12,13 +13,14 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { modules, terminalTheme } from './browser.mjs'
 
-const [out] = process.argv.slice(2)
+const [out, format_ = 'png'] = process.argv.slice(2)
 const { blocks, layout = 'auto', columns = 140 } = JSON.parse(readFileSync(0, 'utf8'))
 const { codeToTokens, isSupportedLanguage } = await import(join(modules, '@pierre/highlights/dist/default.js'))
 const { pierreDark, pierreLight } = await import(join(modules, '@pierre/highlights/dist/themes.js'))
-const { diffLines } = await import(join(modules, 'diff/libesm/index.js'))
+const { diffLines, diffWordsWithSpace } = await import(join(modules, 'diff/libesm/index.js'))
 const { Resvg } = await import(join(modules, '@resvg/resvg-js/index.js'))
-const { mode, font, bg } = terminalTheme()
+// CTREE_THEME ({ mode, font, bg } as JSON) fixes the theme, so tests don't read the terminal's.
+const { mode, font, bg } = process.env.CTREE_THEME ? JSON.parse(process.env.CTREE_THEME) : terminalTheme()
 const dark = mode === 'dark'
 
 // Tints are a solid colour with fill-opacity: resvg reads SVG 1.1, where rgba() alpha is ignored.
@@ -37,8 +39,8 @@ const CAPTION_CHARS = 60
 const width = columns * CELL_PX
 
 const palette = dark
-  ? { fg: '#e4e6e8', muted: '#8d959d', rule: '#3a3f45', del: '#ff5c5c', add: '#34c778', tint: 0.16, delBar: '#ff6b6b', addBar: '#3fcf8e', delText: '#f0a4a4', addText: '#9fd8b1' }
-  : { fg: '#1d2023', muted: '#4f555c', rule: '#d6d8dc', del: '#dc3c3c', add: '#1ea05a', tint: 0.12, delBar: '#d64545', addBar: '#1f9d5a', delText: '#a03434', addText: '#24703f' }
+  ? { fg: '#e4e6e8', muted: '#8d959d', rule: '#3a3f45', del: '#ff5c5c', add: '#34c778', tint: 0.16, delBar: '#ff6b6b', addBar: '#3fcf8e', delText: '#f0a4a4', addText: '#9fd8b1', mark: 0.42, focus: '#8fa9ea' }
+  : { fg: '#1d2023', muted: '#4f555c', rule: '#d6d8dc', del: '#dc3c3c', add: '#1ea05a', tint: 0.12, delBar: '#d64545', addBar: '#1f9d5a', delText: '#a03434', addText: '#24703f', mark: 0.3, focus: '#3f5fa8' }
 
 // A colour `amount` (0–1) of the way from `from` toward `to`, both #rrggbb.
 function mix(from, to, amount) {
@@ -168,12 +170,45 @@ function sideBySide(before, after) {
   return rows
 }
 
+// A line's text as the wrapper lays it out, tabs as four spaces.
+const plain = (runs) => runs.map((run) => run.text).join('').replace(/\t/g, '    ')
+
+// The characters that changed between a removed line and the added line facing it, as [start, end)
+// columns on each side; null when the two share too little for word marks to help (a rewrite, not
+// an edit), so unrelated lines stay plain.
+function wordMarks(before, after) {
+  const parts = diffWordsWithSpace(before, after)
+  const same = parts.filter((part) => !part.added && !part.removed).reduce((n, part) => n + part.value.trim().length, 0)
+  if (same < 0.4 * Math.max(before.trim().length, after.trim().length)) return null
+  const marks = { before: [], after: [] }
+  let at = { before: 0, after: 0 }
+  for (const part of parts) {
+    const length = part.value.length
+    if (part.removed) marks.before.push([at.before, at.before + length])
+    if (part.added) marks.after.push([at.after, at.after + length])
+    if (!part.added) at.before += length
+    if (!part.removed) at.after += length
+  }
+  return marks
+}
+
+// Line numbers named by a `focus` spec ("105-106,110"), or undefined when it names none.
+function focusOf(spec) {
+  if (!spec) return undefined
+  const ranges = String(spec).split(',').map((range) => range.trim().split('-').map(Number))
+  return (number) => ranges.some(([first, last = first]) => number >= first && number <= last)
+}
+
 const escape = (text) => text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 
 // One code line in a column `chars` wide at `x`: its wrapped rows, and how to draw them at `y`
 // once the row's height (the taller of the two sides in a split) is known.
-function codeLine(lines, cell, x, chars, number) {
-  const rows = wrap(lines[cell.line] ?? [], chars - GUTTER_CHARS - 1)
+// `focus` (a line-number test) dims every line it doesn't name; `cell.marks` are changed columns.
+function codeLine(lines, cell, x, chars, number, focus) {
+  const textChars = chars - GUTTER_CHARS - 1
+  const rows = wrap(lines[cell.line] ?? [], textChars)
+  const focused = focus?.(number)
+  const dimmed = focus !== undefined && !focused
   const tint = { del: palette.del, add: palette.add }[cell.kind]
   const bar = { del: palette.delBar, add: palette.addBar }[cell.kind]
   const numberColor = { del: palette.delText, add: palette.addText }[cell.kind] ?? palette.muted
@@ -181,15 +216,28 @@ function codeLine(lines, cell, x, chars, number) {
     height: rows.length * LINE_PX,
     draw(y, height) {
       const parts = []
+      const textX = x + (GUTTER_CHARS + 0.5) * CHAR_PX
       if (tint) {
         parts.push(`<rect x="${x}" y="${y}" width="${chars * CHAR_PX}" height="${height}" fill="${tint}" fill-opacity="${palette.tint}"/>`)
         parts.push(`<rect x="${x}" y="${y}" width="3" height="${height}" fill="${bar}"/>`)
+      } else if (focused) {
+        parts.push(`<rect x="${x}" y="${y}" width="${chars * CHAR_PX}" height="${height}" fill="${palette.focus}" fill-opacity="0.1"/>`)
+        parts.push(`<rect x="${x}" y="${y}" width="3" height="${height}" fill="${palette.focus}"/>`)
       }
-      parts.push(`<text x="${x + (GUTTER_CHARS - 0.5) * CHAR_PX}" y="${y + BASELINE_PX}" fill="${numberColor}" text-anchor="end">${number}</text>`)
+      // Each changed span, cut where the line wraps.
+      for (const [start, end] of cell.marks ?? []) {
+        for (let row = Math.floor(start / textChars); row * textChars < end && row < rows.length; row++) {
+          const from = Math.max(start, row * textChars) - row * textChars
+          const to = Math.min(end, (row + 1) * textChars) - row * textChars
+          parts.push(`<rect x="${textX + from * CHAR_PX}" y="${y + 3 + row * LINE_PX}" width="${(to - from) * CHAR_PX}" height="${LINE_PX - 4}" rx="2" fill="${tint}" fill-opacity="${palette.mark}"/>`)
+        }
+      }
+      const text = [`<text x="${x + (GUTTER_CHARS - 0.5) * CHAR_PX}" y="${y + BASELINE_PX}" fill="${numberColor}" text-anchor="end">${number}</text>`]
       rows.forEach((runs, i) => {
         const spans = runs.map((run) => `<tspan fill="${run.color}"${run.italic ? ' font-style="italic"' : ''}>${escape(run.text)}</tspan>`).join('')
-        parts.push(`<text x="${x + (GUTTER_CHARS + 0.5) * CHAR_PX}" y="${y + BASELINE_PX + i * LINE_PX}" xml:space="preserve">${spans}</text>`)
+        text.push(`<text x="${textX}" y="${y + BASELINE_PX + i * LINE_PX}" xml:space="preserve">${spans}</text>`)
       })
+      parts.push(dimmed ? `<g opacity="0.4">${text.join('')}</g>` : text.join(''))
       return parts
     },
   }
@@ -241,8 +289,9 @@ function card(block, top) {
     const trimmed = (text ?? '').replace(/\n+$/, '')
     return block.format === false ? dedent(trimmed) : format(trimmed, language)
   }
+  const focus = focusOf(block.focus)
   const pushLine = (lines, cell, number) => {
-    const line = codeLine(lines, cell, PAD, chars, number)
+    const line = codeLine(lines, cell, PAD, chars, number, focus)
     parts.push(...line.draw(y, line.height))
     y += line.height
   }
@@ -256,6 +305,12 @@ function card(block, top) {
     const before = highlight(beforeText, language)
     const after = highlight(afterText, language)
     const rows = sideBySide(beforeText, afterText)
+    // A removed line facing an added one that edits it gets its changed words marked on both sides.
+    for (const [left, right] of rows) {
+      if (left?.kind !== 'del' || right?.kind !== 'add') continue
+      const marks = wordMarks(plain(before[left.line] ?? []), plain(after[right.line] ?? []))
+      if (marks) [left.marks, right.marks] = [marks.before, marks.after]
+    }
     const beforeStart = block.beforeLine ?? 1
     const afterStart = block.afterLine ?? 1
     if (layout === 'unified') {
@@ -281,7 +336,7 @@ function card(block, top) {
       parts.push(`<text x="${rightX + 12}" y="${y + 12}" fill="${palette.addText}">after</text>`)
       y += 22
       for (const [left, right] of rows) {
-        const sides = [left && codeLine(before, left, PAD, half, left.line + beforeStart), right && codeLine(after, right, rightX, half, right.line + afterStart)]
+        const sides = [left && codeLine(before, left, PAD, half, left.line + beforeStart, focus), right && codeLine(after, right, rightX, half, right.line + afterStart, focus)]
         const height = Math.max(...sides.map((side) => side?.height ?? 0))
         for (const side of sides) if (side) parts.push(...side.draw(y, height))
         y += height
@@ -325,6 +380,11 @@ const images = blocks.map((block, i) => {
   const drawn = card(block, 1)
   const height = Math.ceil(drawn.bottom + 1)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" font-family="${family}" font-size="${FONT_PX}">${drawn.parts.join('')}</svg>`
+  if (format_ === 'svg') {
+    const path = out.replace(/\.svg$/, `-${i}.svg`)
+    writeFileSync(path, svg)
+    return { svg: path, width: width * 2, height: height * 2 }
+  }
   const zoom = Math.min(2, MAX_SIDE_PX / width, MAX_SIDE_PX / height)
   const png = new Resvg(svg, {
     fitTo: { mode: 'zoom', value: zoom },

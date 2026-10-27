@@ -266,6 +266,7 @@ export const register: Register = on => {
                 path: { type: 'string' },
                 note: { type: 'string' },
                 caption: { type: 'string', description: 'A note drawn under the code instead of in the header; `backticks` mark code.' },
+                focus: { type: 'string', description: 'Line numbers to bring forward, e.g. "105-106,110"; the rest of the card is dimmed.' },
                 before: { type: 'string' },
                 after: { type: 'string' },
                 code: { type: 'string' },
@@ -314,6 +315,7 @@ export const register: Register = on => {
       path?: string
       note?: string
       caption?: string
+      focus?: string
       before?: string
       after?: string
       code?: string
@@ -333,7 +335,7 @@ export const register: Register = on => {
         const [first = 1, last = first] = change.lines.split('-').map(Number)
         const ran = await $.process.run(['sed', '-n', `${first},${last}p`, path])
         if (ran.exitCode !== 0) throw new Error(`show_code could not read ${path}: ${ran.stderr}`)
-        return [{ path: `${path}:${first}`, note: change.note, caption: change.caption, code: ran.stdout, startLine: first, format: false }]
+        return [{ path: `${path}:${first}`, note: change.note, caption: change.caption, focus: change.focus, code: ran.stdout, startLine: first, format: false }]
       }
       if (change.against !== undefined) {
         // Run from the file's own folder, so a file in another repository diffs against its own history.
@@ -346,7 +348,7 @@ export const register: Register = on => {
           const header = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
           const hunk = hunks.at(-1)
           if (header) {
-            hunks.push({ path: `${path}:${header[2]}`, note: change.note, caption: change.caption, before: '', after: '', beforeLine: Number(header[1]), afterLine: Number(header[2]), format: false })
+            hunks.push({ path: `${path}:${header[2]}`, note: change.note, caption: change.caption, focus: change.focus, before: '', after: '', beforeLine: Number(header[1]), afterLine: Number(header[2]), format: false })
           } else if (hunk && /^[ +-]/.test(line) && !/^(\+\+\+|---) /.test(line)) {
             const text = `${line.slice(1)}\n`
             if (line[0] !== '+') hunk.before += text
