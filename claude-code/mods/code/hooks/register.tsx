@@ -1,4 +1,4 @@
-import type { Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 // show_code: code, or a before/after change, drawn as a syntax-highlighted card in the chat. The
 // cards render in render/code.mjs (run `npm i` there once); `as: "text"` draws terminal text with
@@ -116,6 +116,26 @@ function sideRows(unified: string): SideRow[] {
   }
   flush()
   return rows
+}
+
+// Which images each call drew, kept in $.store by tool_use_id so its row still draws them after a
+// reload or a relaunch (the module's own map starts empty then). File paths only, the most recent
+// KEPT_CALLS calls.
+const KEPT_CALLS = 500
+type Kept = { pictures: { png: string; columns: number; rows: number }[]; hidden: number }
+
+async function remember($: EngineInterface, id: string, kept: Kept) {
+  await $.store.set(`call:${id}`, kept)
+  const order = ((await $.store.get('calls')) as string[] | undefined) ?? []
+  const next = [...order.filter(other => other !== id), id]
+  for (const old of next.slice(0, Math.max(0, next.length - KEPT_CALLS))) await $.store.delete(`call:${old}`)
+  await $.store.set('calls', next.slice(-KEPT_CALLS))
+}
+
+async function recall($: EngineInterface, id: string): Promise<Drawn | undefined> {
+  const kept = (await $.store.get(`call:${id}`)) as Kept | undefined
+  if (!kept?.pictures.length) return undefined
+  return { kind: 'images', images: kept.pictures.map(picture => ({ kind: 'image', ...picture })), hidden: kept.hidden }
 }
 
 export const register: Register = on => {
@@ -269,7 +289,9 @@ export const register: Register = on => {
       // Code read from disk is not echoed back: the caller named it and can read it there.
       const text = shown.map(b => (b.format === false ? `${b.path ?? ''}` : `${b.path ?? ''}\n${b.code ?? `--- before\n${b.before}\n+++ after\n${b.after}`}`)).join('\n\n')
       const hidden = blocks.length - shown.length
-      drawn.set(id, { kind: 'images', images: await Promise.all(images.map(image => imageOf($, image, Math.max(10, terminalRows - 4), imageColumns))), hidden })
+      const pictures = await Promise.all(images.map(image => imageOf($, image, Math.max(10, terminalRows - 4), imageColumns)))
+      drawn.set(id, { kind: 'images', images: pictures, hidden })
+      await remember($, id, { pictures: pictures.map(({ png, columns, rows }) => ({ png, columns, rows })), hidden })
       const more = hidden ? ` ${hidden} more not shown; point the user to the nvim review (/look).` : ''
       return { result: `Shown to the user as an image of ${shown.length} block(s).${more}\n${text}` }
     }
@@ -290,11 +312,11 @@ export const register: Register = on => {
     return { result: 'Shown to the user.' }
   }).catch(() => ({ deny: 'show_code failed.' }))
 
-  on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
+  on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     if (e.viewport?.columns) terminalColumns = e.viewport.columns
     if (e.viewport?.rows) terminalRows = e.viewport.rows
     if (e.props.tool !== CODE) return next(e)
-    const d = drawn.get(e.props.tool_use_id)
+    const d = drawn.get(e.props.tool_use_id) ?? (await recall($, e.props.tool_use_id))
     if (d === undefined || e.props.isErrored) return next(e)
     const elements = $.ui.resolve(e)
     const { Box, Text, Code } = elements
@@ -369,8 +391,9 @@ export const register: Register = on => {
     )
   })
 
-  on('ui.render', { component: 'ToolResult' }, ($, e, next) => {
-    if (e.props.tool !== CODE || e.props.isErrored || !drawn.has(e.props.tool_use_id)) return next(e)
+  on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
+    if (e.props.tool !== CODE || e.props.isErrored) return next(e)
+    if (!drawn.has(e.props.tool_use_id) && !(await recall($, e.props.tool_use_id))) return next(e)
     const { Box } = $.ui.resolve(e)
     return <Box />
   })
