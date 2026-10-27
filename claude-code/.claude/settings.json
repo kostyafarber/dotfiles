@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude-code/mods/open-files:~/.dotfiles/claude-code/mods/prs:~/.dotfiles/claude-code/mods/diagrams:~/.dotfiles/claude-code/mods/code"
+  },
   "attribution": {
     "commit": ""
   },
@@ -107,7 +110,5 @@
       "routine under /Users/kostyafarber/repos/shift/ prefix: pnpm, cargo, nix, rustup commands scoped to this repo's build/dev workflow"
     ]
   },
-  "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude-code/mods/open-files:~/.dotfiles/claude-code/mods/prs:~/.dotfiles/claude-code/mods/diagrams"
-  }
+  "tui": "fullscreen"
 }

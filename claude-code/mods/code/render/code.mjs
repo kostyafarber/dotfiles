@@ -11,7 +11,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { modules, terminalTheme } from './browser.mjs'
+import { modules, terminalTheme } from './theme.mjs'
 
 const [out, format_ = 'png'] = process.argv.slice(2)
 const { blocks, layout = 'auto', columns = 140 } = JSON.parse(readFileSync(0, 'utf8'))
@@ -261,11 +261,30 @@ function headerRuns(block) {
   return runs.filter((run) => run.text)
 }
 
-// Prose muted, with its `backticked` parts highlighted as code in the block's language.
+// A word that can only be code: CamelCase with an inner capital (`FlatOrder`), snake_case, a path
+// (`a::b`), a call (`f()`), generics (`Vec<T>`) or an attribute (`#[from]`). Ordinary capitalised
+// words ("Display") are left to backticks.
+const CODE_WORD = /^(?:[A-Za-z_][\w]*[a-z0-9][A-Z]\w*(?:<[^\s]*>)?|[a-z][a-z0-9]*(?:_[a-z0-9]+)+|[\w:]*::[\w:<>]+|[\w.]+\(\)|\w+<[^\s]+>|#\[[^\]]+\])$/
+
+// Prose muted, with its `backticked` parts and its unmistakable code words highlighted as code in
+// the block's language.
 function proseRuns(text, block) {
   const language = languageOf(block)
   const code = (piece) => (language ? highlight(piece, language)[0] ?? [] : [{ text: piece, color: palette.fg }])
-  return text.split('`').flatMap((piece, i) => (i % 2 ? code(piece) : [{ text: piece, color: palette.muted }])).filter((run) => run.text)
+  const prose = (piece) =>
+    piece.split(/(\s+)/).flatMap((word) => {
+      const [, lead, core, tail] = word.match(/^([("']*)(.*?)([)"',.;:!?]*)$/) ?? [null, '', word, '']
+      if (!core || !CODE_WORD.test(core)) return [{ text: word, color: palette.muted }]
+      return [{ text: lead, color: palette.muted }, ...code(core), { text: tail, color: palette.muted }]
+    })
+  const runs = text.split('`').flatMap((piece, i) => (i % 2 ? code(piece) : prose(piece))).filter((run) => run.text)
+  // Neighbouring words of one colour go back into one run.
+  return runs.reduce((merged, run) => {
+    const last = merged.at(-1)
+    if (last && last.color === run.color && !last.italic && !run.italic) last.text += run.text
+    else merged.push({ ...run })
+    return merged
+  }, [])
 }
 
 // One block as a card from `top`: a header (path · note), then the snippet, the two sides of a

@@ -1,0 +1,14 @@
+{
+  "name": "code-render",
+  "private": true,
+  "type": "module",
+  "description": "Renders show_code's cards for the code mod",
+  "scripts": {
+    "test": "node --test test/code.test.mjs"
+  },
+  "dependencies": {
+    "@pierre/highlights": "0.3.0",
+    "@resvg/resvg-js": "^2.6.2",
+    "diff": "^9.0.0"
+  }
+}
