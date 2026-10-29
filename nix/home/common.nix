@@ -154,6 +154,9 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/cargo/local-builds.toml";
   home.file.".pi/agent/AGENTS.md".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/AGENTS.md";
+  # Claude Code: global instructions, on every machine.
+  home.file.".claude/CLAUDE.md".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude-code/.claude/CLAUDE.md";
   home.file.".pi/agent/settings.json".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/pi/.pi/agent/settings.json";
   home.file.".pi/agent/extensions".source =

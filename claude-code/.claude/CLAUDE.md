@@ -16,3 +16,4 @@ An answer is for the reader to understand and act on, not a record of the work.
   do next, and one at a time.
 - **Prefer short.** Say less and say it clearly; depth on request. Keep unrelated updates out.
 - **Show rather than describe.** A structure is clearer as a picture, a change as the code itself.
+- **When grilling, ask one question at a time.**
