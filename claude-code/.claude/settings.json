@@ -16,6 +16,16 @@
             "command": "[ -n \"$REX_SESSION\" ] || terminal-notifier -title \"٩(◕‿◕)۶\" -message \"Claudopilis NEEDS you\" -sender com.todesktop.230313mzl4w4u92"
           }
         ]
+      },
+      {
+        "matcher": "permission_prompt|elicitation_dialog",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-notify-hook",
+            "async": true
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -36,6 +46,27 @@
             "type": "command",
             "command": "/bin/sh -c 'rex __internal session-start --agent claude 2>/dev/null || true'",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-notify-hook"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-notify-hook",
+            "async": true
           }
         ]
       }
