@@ -60,6 +60,9 @@ in
     inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.gh
     # wt: reflinks build caches into new git worktrees (the worktrees agent skill).
     inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.worktrunk
+    # bun from unstable: the review app's runtime (~/repos/review); stable lags, and the
+    # Homebrew 1.2.3 it replaces segfaults.
+    inputs.nixpkgs-unstable.legacyPackages.${pkgs.stdenv.hostPlatform.system}.bun
     gnumake
     unzip
     uv # replaces conda
