@@ -28,17 +28,6 @@
         ]
       }
     ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$HOME/.dotfiles/claude-code/.claude/hooks/merge-guard.sh"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
@@ -67,6 +56,17 @@
             "type": "command",
             "command": "~/.local/bin/claude-notify-hook",
             "async": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "tldraw-offline",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node '/Users/kostyafarber/skills/tldraw-offline/inject-server-context.mjs' SubagentStart"
           }
         ]
       }
