@@ -104,6 +104,8 @@ in
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/rex/.config/rex/init.lua";
   home.file.".local/bin/rex-sessionizer".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/rex/.local/bin/rex-sessionizer";
+  home.file.".local/bin/cc-fork".source =
+    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/rex/.local/bin/cc-fork";
   # Rex only puts its CLI on PATH inside its own terminals; the agent skill and
   # hook need it everywhere.
   home.file.".local/bin/rex".source =

@@ -68,6 +68,47 @@ rex.action{
   end,
 }
 
+-- Open a shell in a project in a new tab of a session (the current one by
+-- default). The tab is named after the directory.
+rex.action{
+  name  = "project_tab",
+  title = "Open Project in Tab",
+  args  = { dir = "string", session_id = "string?" },
+  run   = function(ctx, args)
+    local dir = args.dir:gsub("/+$", "")
+    local session_id = args.session_id or ctx.session_id
+    local w, err = rex.call("session.new_window", {
+      session_id   = session_id,
+      window_label = dir:match("([^/]+)$"),
+      layout       = term(dir),
+      focus        = true,
+    })
+    if err ~= nil then error(err, 0) end
+    -- The app keeps showing the old tab until it is told to select the new one.
+    rex.client.queue("session.select", { session_id = session_id, window_id = w.window_id })
+    return { window_id = w.window_id, dir = dir }
+  end,
+}
+
+-- fzf over ~/repos in a floating pane; the pick opens in a new tab and the
+-- pane closes when rex-sessionizer exits.
+rex.action{
+  name     = "project_picker",
+  title    = "Pick Project (New Tab)",
+  keywords = "project open fzf sessionizer tab",
+  run      = function(ctx)
+    local bin = os.getenv("HOME") .. "/.local/bin/rex-sessionizer"
+    local res, err = rex.call("session.new_layer", {
+      session_id = ctx.session_id,
+      bounds     = { 0.2, 0.15, 0.6, 0.6 },
+      focus      = true,
+      layout     = term(os.getenv("HOME"), { bin, "--tab", ctx.session_id }),
+    })
+    if err ~= nil then error(err, 0) end
+    return res
+  end,
+}
+
 -- One palette entry per project, so the command palette is the project picker.
 -- Projects are read when the config loads: reload (prefix r) to pick up new ones.
 local function project_dirs()
@@ -129,6 +170,76 @@ end
 
 -- Neovim in the current tab: split the pane the action ran from, nvim on the
 -- left at the code_claude ratio, in that pane's directory.
+-- The Claude Code session running in this pane. Claude records each running
+-- session in ~/.claude/sessions/<pid>.json.
+local function pane_claude(ctx)
+  local proc = ctx.block_id and rex.block.call(terminal, "process", { block_id = ctx.block_id })
+  local fg = proc and proc.foreground
+  local f = fg and io.open(os.getenv("HOME") .. "/.claude/sessions/" .. fg.pid .. ".json")
+  if f == nil then error("no Claude Code session in this pane", 0) end
+  local s = rex.json.decode(f:read("*a"))
+  f:close()
+  return s
+end
+
+-- Open a layout in a new pane below the one the action ran from, or in a new tab.
+local function open_at(ctx, where, layout)
+  local res, err
+  if where == "tab" then
+    res, err = rex.session.new_window{ window_label = "claude", layout = layout }
+    -- The server makes the new window active, but the app keeps showing the
+    -- old tab until it is told to select the new one.
+    if err == nil then
+      rex.client.queue("session.select", { session_id = ctx.session_id, window_id = res.window_id })
+    end
+  else
+    res, err = rex.call("session.new_split", {
+      session_id = ctx.session_id,
+      anchor_id  = ctx.block_id,
+      direction  = "vertical",
+      side       = "after",
+      focus      = true,
+      layout     = layout,
+    })
+  end
+  if err ~= nil then error(err, 0) end
+  return res
+end
+
+-- New Session / Fork Session, each in a pane below (new_claude, fork_claude) or
+-- in a new tab (new_claude_tab, fork_claude_tab). New starts in this pane's
+-- directory; Fork is like the /fork-pane mod but without touching the prompt.
+local wheres = {
+  { where = "below", suffix = "",     title = " Below" },
+  { where = "tab",   suffix = "_tab", title = " in Tab" },
+}
+
+for _, w in ipairs(wheres) do
+  rex.action{
+    name     = "new_claude" .. w.suffix,
+    title    = "New Claude Code" .. w.title,
+    category = "Claude",
+    keywords = "claude code new session " .. w.where,
+    run      = function(ctx)
+      local cwd = block_cwd(ctx.block_id) or os.getenv("HOME")
+      return open_at(ctx, w.where, term(cwd, { "claude" }))
+    end,
+  }
+end
+
+for _, w in ipairs(wheres) do
+  rex.action{
+    name     = "fork_claude" .. w.suffix,
+    title    = "Fork Claude Code" .. w.title,
+    category = "Claude",
+    keywords = "claude code fork session " .. w.where,
+    run      = function(ctx)
+      local s = pane_claude(ctx)
+      return open_at(ctx, w.where, term(s.cwd, { "claude", "--resume", s.sessionId, "--fork-session" }))
+    end,
+  }
+end
+
 rex.action{
   name     = "nvim_here",
   title    = "Neovim Here",
@@ -260,7 +371,6 @@ rex.action{
 for dir, key in pairs(nav_keys) do
   rex.bind(p .. key, "nav_focus", { direction = dir })
   rex.bind("ctrl+" .. key, "nav_focus", { direction = dir }) -- no prefix, vim-tmux-navigator style
-  rex.bind("cmd+alt+" .. dir, "nav_focus", { direction = dir }) -- arrows, iTerm style
 end
 rex.bind(p .. "z", "pane.zoom")
 
@@ -270,12 +380,80 @@ rex.bind(p .. "shift+h", "pane.move.left")
 rex.bind(p .. "shift+j", "pane.move.down")
 rex.bind(p .. "shift+k", "pane.move.up")
 rex.bind(p .. "shift+l", "pane.move.right")
--- ...and the Mac (iTerm2/Ghostty) way: cmd+opt+arrows focuses, add shift to
--- carry the pane along; cmd+shift+enter zooms
+-- Rectangle-style snap: the focused pane takes that half of the tab and the
+-- rest share the other half. pane.move only swaps with a neighbour that way,
+-- so it can't turn a top/bottom stack into left/right.
+local snap_split = {
+  left  = { direction = "horizontal", side = "before" },
+  right = { direction = "horizontal", side = "after" },
+  up    = { direction = "vertical",   side = "before" },
+  down  = { direction = "vertical",   side = "after" },
+}
+
+local function tiled_leaves(node, out)
+  if node.block_id then
+    out[#out + 1] = node
+  elseif node.split then
+    tiled_leaves(node.split.before, out)
+    tiled_leaves(node.split.after, out)
+  end
+  return out
+end
+
+rex.action{
+  name  = "snap",
+  title = "Snap Pane to Half",
+  args  = { direction = "string" },
+  run   = function(ctx, args)
+    local placement = snap_split[args.direction]
+    if placement == nil or ctx.block_id == nil then return end
+    local view, err = rex.call("session.view", { session_id = ctx.session_id })
+    if err ~= nil then error(err, 0) end
+    for _, w in ipairs(view.windows) do
+      for _, layer in ipairs(w.layers) do
+        if layer.kind == "tiled" then
+          local leaves = tiled_leaves(layer.layout, {})
+          local anchor, area = nil, -1
+          local mine = false
+          for _, leaf in ipairs(leaves) do
+            if leaf.block_id == ctx.block_id then
+              mine = true
+            else
+              local a = leaf.rect[3] * leaf.rect[4]
+              if a > area then anchor, area = leaf.block_id, a end
+            end
+          end
+          if mine then
+            if anchor == nil then return end
+            local _, merr = rex.call("session.move_block", {
+              session_id      = ctx.session_id,
+              block_id        = ctx.block_id,
+              anchor_block_id = anchor,
+              direction       = placement.direction,
+              side            = placement.side,
+              ratio           = 0.5,
+            })
+            if merr ~= nil then error(merr, 0) end
+            rex.call("session.focus_block", { session_id = ctx.session_id, block_id = ctx.block_id })
+            return
+          end
+        end
+      end
+    end
+  end,
+}
+
+-- cmd+opt+arrows snap the pane to that half (Rectangle's arrows; ctrl+hjkl
+-- moves focus); add shift to swap with the neighbour; cmd+shift+enter zooms
 for _, dir in ipairs{ "left", "down", "up", "right" } do
+  rex.bind("cmd+alt+" .. dir, "snap", { direction = dir })
   rex.bind("cmd+alt+shift+" .. dir, "pane.move." .. dir)
 end
 rex.bind("cmd+shift+enter", "pane.zoom")
+-- Claude panes (also in the palette's Claude group): new session / fork this one,
+-- both below. Not alt+c: zsh's fzf-cd-widget has it.
+rex.bind("cmd+shift+c", "new_claude")
+rex.bind("cmd+alt+c", "fork_claude")
 rex.bind(p .. "shift+1", "pane.move_to_new_tab")
 rex.bind(p .. "m", "pane.move_to_tab")
 rex.bind(p .. "=", "pane.balance")
@@ -300,6 +478,7 @@ rex.bind(p .. "f", "client.palette.toggle")
 -- layouts
 rex.bind(p .. "shift+d", "dev_layout")
 rex.bind(p .. "g", "shift_prs")
+rex.bind("cmd+shift+f", "project_picker")
 
 -- misc
 rex.bind(p .. "c>h", "com.superlogical.terminal.clear")

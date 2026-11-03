@@ -5,8 +5,10 @@
 # first time. Uses the same TMUX_SESSIONIZER_PATHS / _EXTRA_PATHS roots as
 # tmux-sessionizer.
 #
-# usage: rex-sessionizer [--client CLIENT] [dir]
+# usage: rex-sessionizer [--client CLIENT] [--tab SESSION] [dir]
 #   --client  the Rex client to switch (defaults to the first connected app)
+#   --tab     open the project in a new tab of SESSION (project_tab) instead
+#             of its own session; the project_picker floating pane uses this
 
 set -uo pipefail
 
@@ -15,10 +17,14 @@ set -uo pipefail
 export FZF_DEFAULT_OPTS_FILE=${FZF_DEFAULT_OPTS_FILE:-$HOME/.local/state/theme/fzf.conf}
 
 client=""
-if [[ ${1:-} == --client ]]; then
-    client=$2
-    shift 2
-fi
+tab_session=""
+while [[ ${1:-} == --* ]]; do
+    case $1 in
+        --client) client=$2; shift 2 ;;
+        --tab) tab_session=$2; shift 2 ;;
+        *) echo "rex-sessionizer: unknown option $1" >&2; exit 2 ;;
+    esac
+done
 
 if [[ $# -eq 1 ]]; then
     selected=$1
@@ -55,4 +61,8 @@ if [[ -z $client ]]; then
 fi
 [[ -z $client ]] && { echo "rex-sessionizer: no Rex app connected" >&2; exit 1; }
 
-rex -C "$client" do open_project dir="$selected" > /dev/null
+if [[ -n $tab_session ]]; then
+    rex -C "$client" do project_tab dir="$selected" session_id="$tab_session" > /dev/null
+else
+    rex -C "$client" do open_project dir="$selected" > /dev/null
+fi

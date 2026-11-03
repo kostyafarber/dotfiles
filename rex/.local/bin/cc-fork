@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Fork the Claude Code session this runs inside into a new Rex pane below it.
+# Run from Claude Code as `! cc-fork`; extra args go to the forked claude.
+set -euo pipefail
+
+pid=$$
+session_file=""
+while [ "$pid" -gt 1 ]; do
+	if [ -f "$HOME/.claude/sessions/$pid.json" ]; then
+		session_file="$HOME/.claude/sessions/$pid.json"
+		break
+	fi
+	pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
+done
+
+if [ -z "$session_file" ]; then
+	echo "cc-fork: not inside a Claude Code session (run it with ! from Claude Code)" >&2
+	exit 1
+fi
+if [ -z "${REX_BLOCK:-}" ]; then
+	echo "cc-fork: not inside a Rex pane" >&2
+	exit 1
+fi
+
+session_id=$(jq -r .sessionId "$session_file")
+cwd=$(jq -r .cwd "$session_file")
+
+rex split --split=below -b "$REX_BLOCK" ${REX_SESSION:+-s "$REX_SESSION"} -c "$cwd" \
+	--label "fork-${session_id:0:8}" -- claude --resume "$session_id" --fork-session "$@"
