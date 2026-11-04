@@ -102,6 +102,12 @@
       }
     }
   },
+  "permissions": {
+    "ask": [
+      "Read(~/Library/Mobile Documents/com~apple~CloudDocs/Journal/**)",
+      "Edit(~/Library/Mobile Documents/com~apple~CloudDocs/Journal/**)"
+    ]
+  },
   "alwaysThinkingEnabled": true,
   "effortLevel": "high",
   "modelSettings": {

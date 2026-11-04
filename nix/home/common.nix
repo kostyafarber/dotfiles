@@ -358,6 +358,9 @@ in
   # open file:line in the nvim of the current Rex tab (`nvo src/app.ts:42`)
   home.file.".local/bin/nvo".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/nvo";
 
+  # open today's journal entry in nvim (`journal`, `journal y`, `journal 2026-11-01`)
+  home.file.".local/bin/journal".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/journal";
+
   # check a GitHub PR out from anywhere, into its own worktree + tmux session
   # (`pco <url>`, `pco 123`, `pco ls`, `pco rm 123`)
   home.file.".local/bin/pco".source = config.lib.file.mkOutOfStoreSymlink "${dotfiles}/zshrc/bin/pco";

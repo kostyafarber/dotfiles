@@ -1,5 +1,6 @@
 require("set")
 require("core/keymaps")
+require("core/journal")
 if vim.env.REX_SESSION then require("core/rex") end
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"

@@ -480,6 +480,43 @@ rex.bind(p .. "shift+d", "dev_layout")
 rex.bind(p .. "g", "shift_prs")
 rex.bind("cmd+shift+f", "project_picker")
 
+-- journal: today's entry (zshrc/bin/journal) in its own tab with the
+-- sidebar hidden. If today's entry is already open, bring it forward
+-- instead. Old days' journals are left alone so unsaved writing is never closed.
+rex.action{
+  name  = "journal",
+  title = "Open Today's Journal",
+  run   = function(ctx)
+    local label = "journal " .. os.date("%Y-%m-%d")
+    local view, verr = rex.call("session.view", { session_id = ctx.session_id })
+    if verr ~= nil then error(verr, 0) end
+
+    for _, w in ipairs(view.windows or {}) do
+      if (w.window_label or w.label) == label then
+        rex.call("session.focus_window", { session_id = ctx.session_id, window_id = w.window_id })
+        -- The app keeps showing the old tab until it is told to select this one.
+        rex.client.queue("session.select", { session_id = ctx.session_id, window_id = w.window_id })
+        return { window_id = w.window_id, focused = true }
+      end
+    end
+
+    local home = os.getenv("HOME")
+    local w, err = rex.call("session.new_window", {
+      session_id   = ctx.session_id,
+      window_label = label,
+      layout       = term(home, { home .. "/.dotfiles/zshrc/bin/journal" }),
+      focus        = true,
+    })
+    if err ~= nil then error(err, 0) end
+    -- Select the new tab and hide the sidebar. The sidebar action is a toggle,
+    -- so it only runs when the journal tab is created.
+    rex.client.queue("session.select", { session_id = ctx.session_id, window_id = w.window_id })
+    rex.client.queue("client.sidebar.toggle", {})
+    return { window_id = w.window_id }
+  end,
+}
+rex.bind("cmd+shift+j", "journal")
+
 -- misc
 rex.bind(p .. "c>h", "com.superlogical.terminal.clear")
 rex.bind(p .. "r", "client.config.reload")

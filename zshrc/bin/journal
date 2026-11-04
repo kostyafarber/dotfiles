@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# journal — open today's journal entry in nvim, creating it if needed.
+#
+#   journal              today
+#   journal yesterday    (or: journal y)
+#   journal 2026-11-01   any date
+#   journal --path       print the path instead of opening it
+#
+# Entries live in $JOURNAL_DIR (default: iCloud Drive/Journal), one
+# markdown file per day. nvim's core/journal.lua handles writing mode.
+set -euo pipefail
+
+dir="${JOURNAL_DIR:-$HOME/Library/Mobile Documents/com~apple~CloudDocs/Journal}"
+print_only=""
+[[ "${1:-}" == --path ]] && { print_only=1; shift; }
+
+case "${1:-today}" in
+  today|t)     day="$(date +%F)" ;;
+  yesterday|y) day="$(date -v-1d +%F 2>/dev/null || date -d yesterday +%F)" ;;
+  [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) day="$1" ;;
+  *) echo "usage: journal [today|yesterday|YYYY-MM-DD] [--path]" >&2; exit 2 ;;
+esac
+
+file="$dir/$day.md"
+mkdir -p "$dir"
+if [[ ! -e "$file" ]]; then
+  title="$(date -j -f %F "$day" "+%A %-d %B %Y" 2>/dev/null || date -d "$day" "+%A %-d %B %Y")"
+  printf '# %s\n\n' "$title" > "$file"
+fi
+
+if [[ -n "$print_only" ]]; then
+  echo "$file"
+else
+  exec nvim "$file"
+fi
