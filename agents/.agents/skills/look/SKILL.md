@@ -66,6 +66,9 @@ When "Address my review in <path>" arrives:
    - **PRAISE**: keep that approach. Nothing to do.
 4. Reply in each thread with `rv reply ID "<what you did>"` (one line), so the answer sits on the
    code. Then `rv resolve ID` the ones fully addressed; a question back to them stays open.
+   Resolving is not optional: every comment you acted on gets a reply and a resolve. `rv` only
+   reaches a live nvim, so if it finds no open review (they exported, then closed it), say so
+   in chat in one line, and ask them to keep the review tab open after export next time.
    Resolved threads collapse to one line, and their export (`space v s`) leaves them out. In chat, give only the count and anything that needs them. Then take a new round
    snapshot.
 

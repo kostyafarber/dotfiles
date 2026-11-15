@@ -1,6 +1,6 @@
 ---
 name: explain-flow
-description: Explain how a system, protocol or feature works as a fixed structure — the cast of parts, how they connect, then one concrete trace with real ids and values — instead of prose. Use when the user asks how something works or how pieces relate ("how do these relate", "what calls what", "map out the data flow", "what ids get passed around", "walk me through the flow"), and especially when they say "I don't get it", "you didn't explain this well", "I'm confused between X and Y", or "step back". Not for opt-in learning sessions (socratic-learn, learn-trace) — this gives the answer.
+description: Explain how a system, protocol or feature works as a fixed structure — the cast of parts, how they connect, then one concrete trace with real ids and values — instead of prose. Use when the user asks how something works or how pieces relate ("how do these relate", "what calls what", "map out the data flow", "what ids get passed around", "walk me through the flow"), and especially when they say "I don't get it", "you didn't explain this well", "I'm confused between X and Y", or "step back". Not for opt-in learning sessions (socratic-learn, learn-parallel) — this gives the answer.
 ---
 
 # Explain flow

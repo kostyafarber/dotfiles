@@ -1,6 +1,6 @@
 ---
 name: explain-with-diagrams
-description: Answer with a picture first. Use when the user asks how something works, how parts relate, what calls what, where code runs, why something broke, says "map it out", "draw it", "step back", "I don't get it", or re-asks a question. Draws diagrams with the diagrams mod's show_diagram (Mermaid, card look) and file trees with show_tree. When the answer is code, use the show-code skill instead. Not for questions a short table answers better.
+description: Answer with a picture first. Use when the user asks how something works, how parts relate, what calls what, where code runs, why something broke, says "map it out", "draw it", "step back", "I don't get it", or re-asks a question. Also use it whenever an answer shows a file or folder layout, existing or proposed, including mid-design ("the package would look like…"). Applies inside other skills' turns too (grill-me, discuss, spec writing): a design question that proposes a layout, a flow or a before/after gets the picture. Draws diagrams with the diagrams mod's show_diagram (Mermaid, card look) and file trees with show_tree. When the answer is code, use the show-code skill instead. Not for questions a short table answers better.
 ---
 
 # Explain with diagrams
@@ -33,7 +33,7 @@ one line. Do that.
 | what arguments a command or CLI takes, a small grammar | `railroad-ebnf-beta` (≤ 2 rules) |
 | how a screen or window is laid out | `block` (rows and columns follow position; not a treemap, which sorts by size) |
 | why something broke, when several causes fed it | `ishikawa-beta` (the failure, then cause groups) |
-| where files or folders live | `show_tree` (coloured text tree; the user prefers it to `treeView-beta`) |
+| where files or folders live, or would live in a proposal | `show_tree`, always, never a code block (coloured text tree; the user prefers it to `treeView-beta`). A one-line note per file goes in the second column |
 | all the parts of something, for an explore phase | `mindmap` (root, 4–5 branches, 2–3 leaves each; no focus) |
 | a breakdown or a comparison of real numbers | `pie` (parts of one whole, ≤ 6) or `xychart-beta` (bars, lines) |
 
@@ -46,6 +46,7 @@ Draw the one point, not a summary of everything you found. The facts you verifie
 
 - **The focus is the thing the question turns on.** Exactly one (an overview mindmap has none): `classDef focus stroke:#5E8FE0`
   + `class X focus` on a node; in a sequence, wrap the key steps in `rect rgb(94,143,224) … end`.
+- **Caption the focus.** Pass `caption`: one sentence saying what the blue node or band means ("Blue band: the server picks the key up on its own; nothing restarts"). It draws under the picture with a swatch like the focus.
 - **4–7 boxes.** If it needs more, it is two questions: draw the half that answers this one.
 - **Labels of 2–4 words**, one line, two at most. No limits, sizes, env vars, file paths, flags or
   "today/proposed" notes inside a box; those go in the answer or the detail.

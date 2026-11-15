@@ -1,6 +1,6 @@
 ---
 name: show-code
-description: Show code as a highlighted image card with the code mod's show_code, instead of describing it. Use whenever the answer is code — a change you are about to make ("what will it look like", "show me the change", "show me the diff"), a fix you are pointing at ("the fix is in X:42"), a proposed interface or API, a before/after refactor, or a review of what changed — and when the user asks to see code, a hunk or a diff.
+description: Show code as a highlighted image card with the code mod's show_code, instead of describing it. Use whenever the answer is code — a change you are about to make ("what will it look like", "show me the change", "show me the diff"), a fix you are pointing at ("the fix is in X:42"), a proposed interface or API, a before/after refactor, or a review of what changed — and when the user asks to see code, a hunk or a diff. Applies inside other skills' turns too (grill-me, discuss, spec writing): a question that proposes a config, a file format or an API shows it with show_code.
 ---
 
 # Show code
