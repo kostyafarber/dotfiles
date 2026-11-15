@@ -469,6 +469,17 @@ in
         tmux new-session -A -s main
       fi
 
+      # Nix's ncurses can't read the xterm-rex terminfo that the Rex apt
+      # package installs, which garbles zle (stray suggestion text, wrong
+      # cursor column). Keep a copy compiled by the system tic in
+      # ~/.terminfo, refreshed whenever the package updates it.
+      if [[ -e /usr/share/terminfo/x/xterm-rex && -x /usr/bin/tic ]] &&
+         [[ ! -e ~/.terminfo/x/xterm-rex ||
+            /usr/share/terminfo/x/xterm-rex -nt ~/.terminfo/x/xterm-rex ]]; then
+        /usr/bin/infocmp -x xterm-rex 2>/dev/null |
+          /usr/bin/tic -x -o ~/.terminfo - 2>/dev/null && TERM=$TERM
+      fi
+
       # sane option previously set by oh-my-zsh
       setopt AUTO_CD
 
@@ -500,6 +511,16 @@ in
       rebuild() {
         local target="$DOTFILES_TARGET"
         [ -z "$target" ] && { echo "rebuild: \$DOTFILES_TARGET is unset" >&2; return 1; }
+        # A pull whose autostash conflicts still succeeds; building then would install the
+        # conflict markers as live config.
+        local conflicted
+        conflicted=$( { git -C "$HOME/.dotfiles" diff --name-only --diff-filter=U; \
+          git -C "$HOME/.dotfiles" grep -lE '^(<<<<<<<|>>>>>>>)( |$)' -- ':!*.md'; } 2>/dev/null | sort -u)
+        if [ -n "$conflicted" ]; then
+          echo "rebuild: ~/.dotfiles has unresolved merge conflicts; resolve them first:" >&2
+          echo "$conflicted" | sed 's/^/  /' >&2
+          return 1
+        fi
         ${rebuildCommand}
       }
 
