@@ -245,3 +245,7 @@ html, body { margin: 0; background: var(--pele-bg); }
 .pele-packet .ctree-set > rect { stroke-width: 1.75px; }
 .pele-packet .ctree-unset { opacity: 0.35; }
 .pele-packet .ctree-unset > rect { stroke: var(--pele-muted) !important; fill: transparent !important; }
+
+/* A caption under the diagram (show_diagram's `caption`): its swatch matches the focus band. */
+.ctree-caption { margin: 0; padding: 10px 14px 10px 33px; text-indent: -19px; max-width: 72ch; border-top: 1px solid color-mix(in srgb, var(--pele-fg) 35%, transparent); font: 13px/19px 'Paper Mono', monospace; color: var(--pele-fg); }
+.ctree-caption i { display: inline-block; width: 11px; height: 11px; margin-right: 8px; vertical-align: -1px; background: color-mix(in srgb, var(--pele-accent) 12%, var(--pele-bg)); border: 1.25px solid var(--pele-accent); }

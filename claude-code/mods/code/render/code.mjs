@@ -184,8 +184,10 @@ function wordMarks(before, after) {
   let at = { before: 0, after: 0 }
   for (const part of parts) {
     const length = part.value.length
-    if (part.removed) marks.before.push([at.before, at.before + length])
-    if (part.added) marks.after.push([at.after, at.after + length])
+    // Indentation alone isn't a changed word: marking it draws a bar over blank space.
+    const words = part.value.trim() !== ''
+    if (part.removed && words) marks.before.push([at.before, at.before + length])
+    if (part.added && words) marks.after.push([at.after, at.after + length])
     if (!part.added) at.before += length
     if (!part.removed) at.after += length
   }
@@ -243,12 +245,22 @@ function codeLine(lines, cell, x, chars, number, focus) {
   }
 }
 
+// A path that fits in `room` characters: whole folders dropped from the left, so the file name and
+// the folders nearest it stay.
+function shortenPath(path, room) {
+  if (path.length <= room) return path
+  const folders = path.split('/')
+  let kept = folders.pop()
+  while (folders.length && kept.length + folders.at(-1).length + 3 <= room) kept = `${folders.pop()}/${kept}`
+  return `…/${kept}`
+}
+
 // A card's header as coloured runs: the path's folders muted and its file name in the text colour,
 // then the note muted, with its `backticked` parts highlighted as code in the block's language.
-function headerRuns(block) {
+function headerRuns(block, chars) {
   const runs = []
   if (block.path) {
-    const path = block.path.replace(homedir(), '~')
+    const path = shortenPath(block.path.replace(homedir(), '~'), Math.max(24, Math.floor(chars * 0.55)))
     const at = path.search(/[^/\s]+\.\w+(:\d+)?(\s|$)/)
     const split = at < 0 ? path.length : at
     runs.push({ text: path.slice(0, split), color: palette.muted })
@@ -294,7 +306,7 @@ function card(block, top) {
   const inner = width - 2 * PAD
   const chars = Math.floor(inner / CHAR_PX)
   let y = top
-  const label = headerRuns(block)
+  const label = headerRuns(block, chars)
   if (label.length) {
     const spans = label.map((run) => `<tspan fill="${run.color}">${escape(run.text)}</tspan>`).join('')
     parts.push(`<text x="${PAD + 12}" y="${y + 20}" xml:space="preserve">${spans}</text>`)
@@ -332,7 +344,11 @@ function card(block, top) {
     }
     const beforeStart = block.beforeLine ?? 1
     const afterStart = block.afterLine ?? 1
-    if (layout === 'unified') {
+    const half = Math.floor((chars - 1) / 2)
+    // Side by side only when every line fits its half: wrapped lines and the padding that keeps the
+    // two sides level read worse than one column.
+    const fits = [...before, ...after].every((runs) => plain(runs).length <= half - GUTTER_CHARS - 2)
+    if (layout === 'unified' || (layout === 'auto' && !fits)) {
       // A change reads as all its removed lines, then all its added ones: added lines wait until
       // the next unchanged line (or the end).
       let added = []
@@ -349,7 +365,6 @@ function card(block, top) {
       }
       flushAdded()
     } else {
-      const half = Math.floor((chars - 1) / 2)
       const rightX = PAD + (half + 1) * CHAR_PX
       parts.push(`<text x="${PAD + 12}" y="${y + 12}" fill="${palette.delText}">before</text>`)
       parts.push(`<text x="${rightX + 12}" y="${y + 12}" fill="${palette.addText}">after</text>`)

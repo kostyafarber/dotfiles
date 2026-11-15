@@ -19,7 +19,7 @@ const FONT_PX = 14
 const MAX_SIDE_PX = 4096
 const spacing = { nodeSpacing: 70, rankSpacing: 80 }
 
-export async function drawDiagram(source, out, { mode, bg, fg }) {
+export async function drawDiagram(source, out, { mode, bg, fg, caption }) {
   const pele = await import(join(modules, 'pele/dist/pele.js'))
   const { parseHTML } = await import(join(modules, 'linkedom/esm/index.js'))
   const { Resvg } = await import(join(modules, '@resvg/resvg-js/index.js'))
@@ -59,10 +59,11 @@ export async function drawDiagram(source, out, { mode, bg, fg }) {
   const width = Number(svg.getAttribute('width'))
   const height = Number(svg.getAttribute('height'))
   const key = keyRow(document, styles, width)
-  const card = frame({ title, width, height: height + key.height, ink: styles.resolve('var(--pele-fg)'), ground: styles.resolve('var(--pele-bg)') })
+  const note = captionRow(document, styles, width, caption, measurer)
+  const card = frame({ title, width, height: height + key.height + note.height, ink: styles.resolve('var(--pele-fg)'), ground: styles.resolve('var(--pele-bg)') })
   svg.setAttribute('x', card.contentX)
   svg.setAttribute('y', card.contentY)
-  const page = `<svg xmlns="http://www.w3.org/2000/svg" width="${card.width}" height="${card.height}" font-family="${FONT_STACK}">${defs}${card.back}${svg.outerHTML}${key.draw(card.contentX, card.contentY + height)}</svg>`
+  const page = `<svg xmlns="http://www.w3.org/2000/svg" width="${card.width}" height="${card.height}" font-family="${FONT_STACK}">${defs}${card.back}${svg.outerHTML}${key.draw(card.contentX, card.contentY + height)}${note.draw(card.contentX, card.contentY + height + key.height)}</svg>`
 
   const zoom = Math.min(2, MAX_SIDE_PX / card.width, MAX_SIDE_PX / card.height)
   writeFileSync(out, new Resvg(page, { fitTo: { mode: 'zoom', value: zoom }, font: fonts }).render().asPng())
@@ -264,6 +265,37 @@ function keyRow(document, styles, width) {
         at += widthOf(entry.name) + 18
         return swatch
       }).join('')
+    },
+  }
+}
+
+// A sentence under the diagram, set off by a rule, saying what its focus means. When the diagram
+// has a focus, a swatch drawn like it leads the first line, so the caption reads as its legend.
+function captionRow(document, styles, width, caption, measurer) {
+  if (!caption) return { height: 0, draw: () => '' }
+  const size = 13
+  const lineHeight = 19
+  const pad = 14
+  const focused = document.querySelector('.ctree-focus-band, .focus, [class~="focus"]')
+  const indent = focused ? 19 : 0
+  const room = width - 2 * pad - indent
+  const lines = []
+  for (const word of caption.trim().split(/\s+/)) {
+    const last = lines.at(-1)
+    if (last !== undefined && measurer.width(`${last} ${word}`, size) <= room) lines[lines.length - 1] = `${last} ${word}`
+    else lines.push(word)
+  }
+  const ink = styles.resolve('var(--pele-fg)')
+  const accent = styles.resolve('var(--pele-accent)')
+  const band = styles.resolve('color-mix(in srgb, var(--pele-accent) 12%, var(--pele-bg))')
+  const escape = (text) => text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])
+  return {
+    height: 14 + lines.length * lineHeight + 10,
+    draw(x, y) {
+      const rule = `<line x1="${x}" y1="${y + 0.5}" x2="${x + width}" y2="${y + 0.5}" stroke="${ink}" stroke-opacity="0.35"/>`
+      const swatch = focused ? `<rect x="${x + pad}" y="${y + 18}" width="11" height="11" fill="${band}" stroke="${accent}" stroke-width="1.25"/>` : ''
+      const text = lines.map((line, i) => `<text x="${x + pad + indent}" y="${y + 28 + i * lineHeight}" font-size="${size}" fill="${ink}">${escape(line)}</text>`).join('')
+      return rule + swatch + text
     },
   }
 }

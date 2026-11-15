@@ -39,7 +39,7 @@ if (mode === 'text') {
   let drawn
   if (process.env.CTREE_RENDER !== 'chrome') {
     try {
-      drawn = await drawDiagram(source, out, { mode, bg, fg })
+      drawn = await drawDiagram(source, out, { mode, bg, fg, caption: process.env.CTREE_CAPTION })
     } catch (error) {
       process.stderr.write(`diagram.mjs could not draw it, so Chrome does: ${error.message}\n`)
     }
@@ -59,9 +59,10 @@ if (mode === 'text') {
   const title = source.match(/^\s*(?:pie\s+(?:showData\s+)?)?title:?\s+["']?(.+?)["']?\s*$/m)?.[1]
     ?? `${source.replace(/^---[\s\S]*?---\s*/, '').trim().split(/\s/)[0]}.mmd`
   const escape = (text) => text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])
+  const caption = process.env.CTREE_CAPTION ? `<p class=ctree-caption><i></i>${escape(process.env.CTREE_CAPTION)}</p>` : ''
   const body = look === 'card'
-    ? `<div id=shot style="display:inline-block;padding:2px 6px 6px 2px"><div class=ctree-card><header><span>${escape(title)}</span><span>×</span></header><div id=d></div></div></div>`
-    : '<div id=shot style="display:inline-block"><div id=d></div></div>'
+    ? `<div id=shot style="display:inline-block;padding:2px 6px 6px 2px"><div class=ctree-card><header><span>${escape(title)}</span><span>×</span></header><div id=d></div>${caption}</div></div>`
+    : `<div id=shot style="display:inline-block"><div id=d></div>${caption}</div>`
   await page.setContent(`<!doctype html><html data-mode=${mode} data-look=${look}><meta charset=utf-8><style>${readFileSync(join(here, 'style.css'), 'utf8')}${term}</style>${body}`)
   await page.addScriptTag({ path: join(here, 'patterns.js') })
   await page.addScriptTag({ path: join(here, 'decorate.js') })

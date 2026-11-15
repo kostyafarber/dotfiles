@@ -1,4 +1,6 @@
 import type { Register } from 'claude-code'
+import { parseRuns, plain, width, type Run } from './runs'
+import { layoutTable, plainTable, type Column } from './table'
 
 // Draws an indented outline as a coloured tree in the transcript.
 //
@@ -8,36 +10,7 @@ import type { Register } from 'claude-code'
 const TOOL = 'show_tree'
 const FULL = 'mcp__diagrams__show_tree'
 
-const COLORS: Record<string, string> = {
-  green: 'success',
-  blue: 'suggestion',
-  yellow: 'warning',
-  red: 'error',
-  magenta: 'merged',
-  cyan: 'ide',
-  dim: 'subtle',
-}
-
-type Run = { text: string; color?: string; bold?: boolean }
 type Row = { prefix: string; columns: Run[][] }
-
-const TAG = /\{(\w+)\}(.*?)\{\/\}/g
-
-function parseRuns(text: string): Run[] {
-  const runs: Run[] = []
-  let at = 0
-  for (const m of text.matchAll(TAG)) {
-    if (m.index > at) runs.push({ text: text.slice(at, m.index) })
-    const [, name = '', inner = ''] = m
-    runs.push(name === 'bold' ? { text: inner, bold: true } : { text: inner, color: COLORS[name] ?? name })
-    at = m.index + m[0].length
-  }
-  if (at < text.length) runs.push({ text: text.slice(at) })
-  return runs
-}
-
-const width = (runs: Run[]) => runs.reduce((n, r) => n + r.text.length, 0)
-const plain = (runs: Run[]) => runs.map(r => r.text).join('')
 
 function layout(source: string): Row[] {
   const nodes = source
@@ -76,6 +49,19 @@ function render(source: string): Row[] {
   }
   return rows
 }
+
+// show_table: a header and rows, laid out to the transcript's width as the last render saw it.
+const TABLE = 'mcp__diagrams__show_table'
+let terminalColumns = 100
+
+type TableInput = { columns: Column[]; rows: string[][] }
+const tableOf = (input: unknown): TableInput | undefined => {
+  const { columns, rows } = (input ?? {}) as Partial<TableInput>
+  if (!Array.isArray(columns) || !Array.isArray(rows) || !rows.every(Array.isArray)) return undefined
+  return { columns, rows: rows.map(row => row.map(cell => String(cell ?? ''))) }
+}
+// Room for the table: the transcript's width less the row's own indent.
+const tableRoom = () => Math.max(20, terminalColumns - 4)
 
 const sourceOf = (input: unknown) =>
   typeof input === 'object' && input !== null && typeof (input as { tree?: unknown }).tree === 'string'
@@ -157,16 +143,49 @@ export const register: Register = on => {
       isDeferred: false,
     })
     await $.tool.register({
+      name: 'show_table',
+      description:
+        'Show the user a table inline in the chat, as text: a bold header, a rule under it, columns ' +
+        'two spaces apart, long cells wrapped inside their column to fit the screen. Use it instead of ' +
+        'a markdown table. Pass `columns` (header strings, or { title, align: "right" } for numbers) ' +
+        'and `rows` (arrays of cell strings, one per column). Colour a run with {green}…{/}, {blue}, ' +
+        '{yellow}, {red}, {magenta}, {cyan}, {dim} or {bold}, one meaning per colour. Explain in ' +
+        'your reply, not in the table.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          columns: {
+            type: 'array',
+            items: {
+              anyOf: [
+                { type: 'string' },
+                {
+                  type: 'object',
+                  properties: { title: { type: 'string' }, align: { type: 'string', enum: ['left', 'right'] } },
+                  required: ['title'],
+                },
+              ],
+            },
+          },
+          rows: { type: 'array', items: { type: 'array', items: { type: 'string' } } },
+        },
+        required: ['columns', 'rows'],
+      },
+      isDeferred: false,
+    })
+    await $.tool.register({
       name: 'show_diagram',
       description:
         'Show the user a Mermaid diagram inline in the chat. Pass `mermaid` (Mermaid source). ' +
         '`as`: "image" (default; a rendered picture, every Mermaid type) or "text" (box-drawing text; ' +
-        'flowchart, state, sequence, class, ER and xychart only). Explain in your reply, not in the diagram.',
+        'flowchart, state, sequence, class, ER and xychart only). `caption`: one sentence drawn under the picture saying what ' +
+        'its focus (the blue node or band) means; it leads with a swatch like the focus. Explain in your reply, not in the diagram.',
       inputSchema: {
         type: 'object',
         properties: {
           mermaid: { type: 'string', description: 'Mermaid source' },
           as: { type: 'string', enum: ['image', 'text'] },
+          caption: { type: 'string', description: 'One sentence under the picture: what the focus means. Image only.' },
         },
         required: ['mermaid'],
       },
@@ -183,7 +202,9 @@ export const register: Register = on => {
     const png = await pngPath($, id)
     const argv = ['/usr/bin/env', 'node', `${$.plugin.root}/render/mermaid.mjs`, as, ...(as === 'image' ? [png] : [])]
     const mode = await themeMode($)
-    const ran = await $.process.run(argv, { stdin: mermaid, timeoutMs: 60_000, env: mode ? { CTREE_MODE: mode } : {} })
+    const caption = field(e, 'caption')
+    const env = { ...(mode ? { CTREE_MODE: mode } : {}), ...(caption ? { CTREE_CAPTION: caption } : {}) }
+    const ran = await $.process.run(argv, { stdin: mermaid, timeoutMs: 60_000, env })
     if (ran.exitCode !== 0) return { deny: `show_diagram could not render it: ${ran.stderr.slice(0, 2000)}` }
     const rendered = JSON.parse(ran.stdout)
     if (as === 'text') {
@@ -255,9 +276,51 @@ export const register: Register = on => {
     )
   })
 
+  on('tool.call', { tool: TABLE }, ($, e) => {
+    const input = tableOf(e)
+    if (input === undefined) return { deny: 'show_table needs `columns` and `rows` (arrays of cell strings).' }
+    return { result: `Shown to the user:\n${plainTable(layoutTable(input.columns, input.rows, tableRoom()))}` }
+  }).catch(() => ({ deny: 'show_table could not lay out that table.' }))
+
+  on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
+    if (e.viewport?.columns) terminalColumns = e.viewport.columns
+    if (e.props.tool !== TABLE) return next(e)
+    const input = tableOf(e.props.input)
+    if (input === undefined || e.props.isErrored) return next(e)
+    const { Box, Text } = $.ui.resolve(e)
+    const table = layoutTable(input.columns, input.rows, tableRoom())
+    // Each cell is a box of its column's width; the text wraps inside it.
+    const row = (cells: Run[][]) => (
+      <Box flexDirection="row" columnGap={2}>
+        {cells.map((runs, k) => (
+          <Box width={table.widths[k]} flexShrink={0} justifyContent={table.align[k] === 'right' ? 'flex-end' : 'flex-start'}>
+            <Text wrap="wrap">
+              {runs.map(run => (
+                <Text color={run.color} bold={run.bold}>
+                  {run.text}
+                </Text>
+              ))}
+            </Text>
+          </Box>
+        ))}
+      </Box>
+    )
+    return (
+      <Box flexDirection="column" marginY={1}>
+        {row(table.header)}
+        <Box flexDirection="row" columnGap={2}>
+          {table.widths.map(w => (
+            <Text color="subtle">{'─'.repeat(w)}</Text>
+          ))}
+        </Box>
+        {table.rows.map(row)}
+      </Box>
+    )
+  })
+
   on('ui.render', { component: 'ToolResult' }, ($, e, next) => {
-    if (![FULL, DIAGRAM].includes(e.props.tool) || e.props.isErrored) return next(e)
-    if (e.props.tool !== FULL && !drawn.has(e.props.tool_use_id)) return next(e)
+    if (![FULL, DIAGRAM, TABLE].includes(e.props.tool) || e.props.isErrored) return next(e)
+    if (e.props.tool === DIAGRAM && !drawn.has(e.props.tool_use_id)) return next(e)
     const { Box } = $.ui.resolve(e)
     return <Box />
   })
