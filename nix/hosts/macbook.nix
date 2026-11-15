@@ -3,7 +3,6 @@
 {
   imports = [
     ../profiles/workstation.nix
-    ../profiles/syncthing.nix
   ];
 
   networking.hostName = "macbook";

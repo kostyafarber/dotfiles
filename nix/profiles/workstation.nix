@@ -44,7 +44,7 @@
       autohide = true;
     };
 
-    LaunchServices.LSQuarantine = false;
+    LaunchServices.LSQuarantine = true;
 
     screencapture = {
       location = "${config.system.primaryUserHome}/Desktop";

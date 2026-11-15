@@ -17,7 +17,7 @@ defaults write com.apple.dock autohide -bool true
 
 # Security settings
 echo "🔒 Configuring security settings..."
-defaults write com.apple.LaunchServices LSQuarantine -bool false
+defaults write com.apple.LaunchServices LSQuarantine -bool true
 
 # Screenshot settings
 echo "📸 Configuring screenshot settings..."

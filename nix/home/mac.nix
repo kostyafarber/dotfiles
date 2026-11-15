@@ -26,6 +26,8 @@ in
     latexPython
     # Mac clipboard image extraction for the Raycast → Beelink bridge.
     pkgs.pngpaste
+    # Generates Xcode projects from project.yml (native Mac apps).
+    pkgs.xcodegen
   ];
 
   # Nix-managed Zsh does not run macOS path_helper, so declare MacTeX's active
