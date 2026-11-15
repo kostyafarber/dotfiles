@@ -19,9 +19,25 @@ end
 -- Buffers where we switched render-markdown off, so it comes back on close.
 local unrendered = {}
 
+-- Inline blame was on when the review opened; it comes back on close.
+local blamed = false
+
 local function apply(tabpage)
     if not vim.api.nvim_tabpage_is_valid(tabpage) then return end
     local ok, manager = pcall(require, "render-markdown.core.manager")
+    -- codediff saves each diff window's options when the review opens (relative numbers included)
+    -- and puts them back when a file is picked, so its saved copy gets absolute numbers too.
+    local has_lifecycle, lifecycle = pcall(require, "codediff.ui.lifecycle")
+    local session = has_lifecycle and lifecycle.get_session(tabpage)
+    for _, profile in pairs(session and session.window_profiles or {}) do
+        profile.relativenumber = false
+        profile.number = true
+    end
+    -- blame text lands in the middle of hunks; it's global, so off for the review's lifetime
+    if vim.g.gitblame_enabled and pcall(require, "gitblame") then
+        require("gitblame").disable(true)
+        blamed = true
+    end
     for _, win in ipairs(diff_wins(tabpage)) do
         -- absolute numbers: relative ones are meaningless across two aligned panes
         vim.wo[win].relativenumber = false
@@ -30,6 +46,8 @@ local function apply(tabpage)
         local buf = vim.api.nvim_win_get_buf(win)
         -- snacks smooth scrolling animates each pane separately and breaks scrollbind
         vim.b[buf].snacks_scroll = false
+        -- indent guides read as extra lines between the +/- marks
+        vim.b[buf].snacks_indent = false
         -- raw markdown: rendered backticks/links hide what actually changed
         if ok and vim.bo[buf].filetype == "markdown" and manager.attached(buf) then
             manager.set_buf(buf, false)
@@ -47,6 +65,10 @@ local function tidy(tabpage)
 end
 
 local function restore()
+    if blamed and pcall(require, "gitblame") then
+        require("gitblame").enable()
+        blamed = false
+    end
     local ok, manager = pcall(require, "render-markdown.core.manager")
     if not ok then return end
     for buf in pairs(unrendered) do
@@ -92,7 +114,8 @@ return {
                 return string.format("#%06x", out)
             end
             local green, red = 0x2ea043, 0xf85149
-            local line, char = dark and 0.2 or 0.14, dark and 0.42 or 0.32
+            -- changed words sit one step above their line: 0.14/0.32 was too pale, 0.42/0.48 too harsh
+            local line, char = 0.2, dark and 0.32 or 0.36
             return { line_insert = mix(green, line), line_delete = mix(red, line), char_insert = mix(green, char), char_delete = mix(red, char) }
         end
         -- Created before codediff's own ColorScheme autocmd, so codediff re-reads these fresh.

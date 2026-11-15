@@ -51,6 +51,23 @@ vim.opt.termguicolors = true
 vim.opt.signcolumn = "yes"
 vim.opt.cursorline = true
 vim.opt.scrolloff = 8
+
+-- scrolloff is for keyboard motions: a click near the top or bottom edge would otherwise scroll the
+-- view to keep 8 lines of context. A click turns it off until the next key that isn't the mouse.
+local click_ns = vim.api.nvim_create_namespace("click-without-scroll")
+vim.keymap.set({ "n", "x" }, "<LeftMouse>", function()
+    vim.o.scrolloff = 0
+    vim.on_key(function(_, typed)
+        local key = vim.fn.keytrans(typed or "")
+        if key == "" or key:find("Mouse") or key:find("ScrollWheel") or key:find("Release") or key:find("Drag") then
+            return
+        end
+        vim.on_key(nil, click_ns)
+        vim.schedule(function() vim.o.scrolloff = 8 end)
+    end, click_ns)
+    return "<LeftMouse>"
+end, { expr = true, desc = "Click moves the cursor without scrolling the view" })
+
 vim.opt.splitbelow = true
 vim.opt.splitright = true
 vim.opt.updatetime = 250
