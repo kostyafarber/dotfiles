@@ -393,10 +393,12 @@ for _, dir in ipairs{ "left", "down", "up", "right" } do
   rex.bind("cmd+alt+shift+" .. dir, "pane.move." .. dir)
 end
 rex.bind("cmd+shift+enter", "pane.zoom")
--- Claude panes (also in the palette's Claude group): new session / fork this one,
--- both below. Not alt+c: zsh's fzf-cd-widget has it.
+-- Claude (also in the palette's Claude group): new session / fork this one, below
+-- (c) or in a new tab (t). Not alt+c: zsh's fzf-cd-widget has it.
 rex.bind("cmd+shift+c", "new_claude")
 rex.bind("cmd+alt+c", "fork_claude")
+rex.bind("cmd+shift+t", "new_claude_tab")
+rex.bind("cmd+alt+t", "fork_claude_tab")
 rex.bind(p .. "shift+1", "pane.move_to_new_tab")
 rex.bind(p .. "m", "pane.move_to_tab")
 rex.bind(p .. "=", "pane.balance")

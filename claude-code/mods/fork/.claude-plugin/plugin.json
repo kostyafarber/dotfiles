@@ -1,0 +1,5 @@
+{
+  "name": "fork",
+  "version": "0.1.0",
+  "description": "/fork-pane: fork this session into a new Rex pane below, without a model turn"
+}
