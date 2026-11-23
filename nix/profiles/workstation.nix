@@ -14,6 +14,7 @@
     casks = [
       "1password"
       "1password-cli"
+      "blender"
       "discord"
       "docker-desktop"
       "font-fira-code-nerd-font"
@@ -21,6 +22,7 @@
       "google-chrome"
       "markedit"
       "obsidian"
+      "paper-design"
       "raycast"
       "rectangle"
       "signal"
