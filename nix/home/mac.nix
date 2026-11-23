@@ -164,8 +164,6 @@ in
     "Workspace.terminalUseThemePalette" = false;
     "Workspace.terminalUsesDisplayP3" = true;
   };
-  home.file.".wezterm.lua".source =
-    config.lib.file.mkOutOfStoreSymlink "${dotfiles}/wezterm/.wezterm.lua";
   # Claude Code: shared settings + hooks; work-only bits come from the work/claude plugin.
   home.file.".claude/settings.json".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/claude-code/.claude/settings.json";

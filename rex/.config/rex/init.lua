@@ -473,8 +473,8 @@ rex.bind(p .. "r", "client.config.reload")
 -- config:8  keybind = shift+enter=text:\n  (a newline, which is ctrl+j)
 rex.bind("shift+enter", "pane.send_key", { key = "ctrl+j" })
 
--- Migrated from WezTerm (~/.wezterm.lua) ------------------------------------
--- .wezterm.lua:40-45, config.keys
+-- Migrated from WezTerm (config since removed) --------------------------------
+-- WezTerm config.keys: cmd/alt line-editing keys
 rex.bind("cmd+left", "pane.send_key", { key = "home" })
 rex.bind("cmd+right", "pane.send_key", { key = "end" })
 rex.bind("shift+cmd+left", "pane.send_key", { key = "shift+home" })  -- SendString "\x1b[1;2H"
