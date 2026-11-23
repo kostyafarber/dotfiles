@@ -464,3 +464,20 @@ rex.bind("cmd+shift+j", "journal")
 -- misc
 rex.bind(p .. "c>h", "com.superlogical.terminal.clear")
 rex.bind(p .. "r", "client.config.reload")
+
+-- Migrated from tmux (~/.config/tmux/tmux.conf) -----------------------------
+-- Every tmux key binding is already bound above (splits, h/j/k/l focus,
+-- reload, alt+arrow resize); the bindings above were kept, so nothing new here.
+
+-- Migrated from Ghostty (~/.config/ghostty/config) --------------------------
+-- config:8  keybind = shift+enter=text:\n  (a newline, which is ctrl+j)
+rex.bind("shift+enter", "pane.send_key", { key = "ctrl+j" })
+
+-- Migrated from WezTerm (~/.wezterm.lua) ------------------------------------
+-- .wezterm.lua:40-45, config.keys
+rex.bind("cmd+left", "pane.send_key", { key = "home" })
+rex.bind("cmd+right", "pane.send_key", { key = "end" })
+rex.bind("shift+cmd+left", "pane.send_key", { key = "shift+home" })  -- SendString "\x1b[1;2H"
+rex.bind("shift+cmd+right", "pane.send_key", { key = "shift+end" })  -- SendString "\x1b[1;2F"
+rex.bind("cmd+backspace", "pane.send_key", { key = "ctrl+u" })
+rex.bind("alt+backspace", "pane.send_key", { key = "ctrl+w" })
