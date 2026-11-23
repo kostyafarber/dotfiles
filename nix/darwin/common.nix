@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   inputs,
   pkgs,
   ...
@@ -38,6 +39,19 @@ in
     autoMigrate = true;
     user = "kostyafarber";
   };
+
+  # Homebrew refuses to load formulae from third-party taps until they are
+  # trusted (~/.homebrew/trust.json, per machine), which made `brew bundle`
+  # fail on every fresh Mac. Trust each declared tap after nix-homebrew sets
+  # up the prefix (mkBefore) and before nix-darwin's bundle (default order).
+  system.activationScripts.homebrew.text = lib.mkIf (config.homebrew.enable && config.homebrew.taps != [ ]) (
+    lib.mkOrder 750 ''
+      echo >&2 "trusting Homebrew taps..."
+      sudo --user=${lib.escapeShellArg config.system.primaryUser} --set-home \
+        ${config.homebrew.brewPrefix}/brew trust --quiet --tap \
+        ${lib.escapeShellArgs (map (t: t.name) config.homebrew.taps)}
+    ''
+  );
 
   home-manager = {
     useGlobalPkgs = true;
