@@ -121,6 +121,49 @@ in
       run "$rexCli" --autostart=false --timeout 5s config reload || true
     fi
   '';
+  # Rex app settings (theme, sidebar, font, panes). The app keeps these in
+  # macOS defaults, not init.lua. A switch writes these values back, so copy a
+  # change made in Rex's settings window here or the next switch undoes it.
+  # Read the current values with `defaults read com.superlogical.rex`.
+  targets.darwin.defaults."com.superlogical.rex" = {
+    # theme
+    "Workspace.appearance" = "dark";
+    "Workspace.darkThemeID" = "polar-aurora";
+    "Workspace.lightThemeID" = "newsprint-fog";
+    "Workspace.interfaceStyle" = "useTheme";
+    "Workspace.appIcon" = "default";
+    # sidebar and tabs
+    "Workspace.sidebarPosition" = "left";
+    "Workspace.sidebarWidth" = 269.09765625;
+    "Workspace.sidebarCollapsed" = false;
+    "Workspace.sidebarShowsActivity" = false;
+    "Workspace.activityGrouping" = "priority";
+    "Workspace.tabStyle" = "vertical";
+    "Workspace.tabsFillAvailableSpace" = false;
+    "Workspace.tabIconTintMode" = "off";
+    # panes
+    "Workspace.showsActivePaneBorder" = true;
+    "Workspace.activePaneBorderAnimation" = "crossfade";
+    "Workspace.inactivePaneFadeMode" = "both";
+    "Workspace.usesStandardInactiveWindowPaneStyles" = true;
+    "Workspace.focusFollowsMouse" = false;
+    # terminal
+    "Workspace.terminalFontName" = "JetBrainsMonoNL Nerd Font Mono";
+    "Workspace.terminalFontPointSize" = 12.5;
+    "Workspace.terminalAllowsLigatures" = true;
+    "Workspace.terminalFontSmoothing" = false;
+    "Workspace.terminalImproveTextContrast" = true;
+    "Workspace.terminalCursorStyle" = "bar";
+    "Workspace.terminalCursorBlinkUsesCustomInterval" = false;
+    "Workspace.terminalCursorBlinkIntervalMilliseconds" = 500;
+    "Workspace.terminalPaddingColor" = "extend";
+    "Workspace.terminalSelectionBackground" = "cellForeground";
+    "Workspace.terminalSelectionForeground" = "cellForeground";
+    "Workspace.terminalSelectionRoundedCorners" = true;
+    "Workspace.terminalSmoothScrolling" = true;
+    "Workspace.terminalUseThemePalette" = false;
+    "Workspace.terminalUsesDisplayP3" = true;
+  };
   home.file.".wezterm.lua".source =
     config.lib.file.mkOutOfStoreSymlink "${dotfiles}/wezterm/.wezterm.lua";
   # Claude Code: shared settings + hooks; work-only bits come from the work/claude plugin.
